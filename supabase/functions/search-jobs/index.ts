@@ -7,13 +7,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Major NL tech companies on Greenhouse/Lever
+// Major NL tech companies on Greenhouse/Lever/SmartRecruiters
 const GREENHOUSE_BOARDS = [
   "booking", "adyen", "elastic", "messagebird", "mollie",
   "takeaway", "picnic", "bunq", "coolblue", "rituals",
+  "tomtom", "leaseweb", "backbase", "lightspeedhq", "wetransfer",
+  "mymedia", "catawiki", "sendcloud", "sytac", "yoursurprise",
+  "viber", "happeo", "polarsteps", "meatable", "abn",
+  "studocu", "fabric", "optiver", "flowtraders", "imctrading",
 ];
 const LEVER_BOARDS = [
   "trivago", "gorillas", "hellofresh", "miro",
+  "personio", "contentful", "spendesk", "bynder",
+  "talentio", "framer",
+];
+// SmartRecruiters public Posting API (no auth needed)
+const SMARTRECRUITERS_COMPANIES = [
+  "Shell", "Unilever", "Philips", "ING", "KPMG",
+  "Deloitte", "Heineken", "AkzoNobel", "ASML", "NXPSemiconductors",
+  "Wolters-Kluwer", "Randstad", "Aegon", "NN-Group",
 ];
 
 interface SearchParams {
@@ -247,6 +259,63 @@ async function fetchLever(params: SearchParams): Promise<any[]> {
   return allJobs;
 }
 
+// ── SmartRecruiters fetcher (public Posting API, no auth) ──
+async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
+  const kw = (params.keywords || "").toLowerCase();
+  const allJobs: any[] = [];
+
+  const fetchCompany = async (company: string) => {
+    try {
+      const url = `https://api.smartrecruiters.com/v1/companies/${company}/postings?limit=100`;
+      const resp = await fetch(url);
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return (data.content || [])
+        .filter((j: any) => {
+          const loc = (j.location?.city || "").toLowerCase() + " " + (j.location?.country || "").toLowerCase();
+          const isNL = loc.includes("netherlands") || loc.includes("nederland") ||
+            loc.includes("amsterdam") || loc.includes("rotterdam") ||
+            loc.includes("utrecht") || loc.includes("den haag") || loc.includes("the hague") ||
+            loc.includes("eindhoven") || loc.includes("tilburg") || loc.includes("delft") ||
+            loc.includes("leiden") || loc.includes("arnhem") || loc.includes("veldhoven");
+          if (!isNL) return false;
+          if (kw) {
+            return (j.name || "").toLowerCase().includes(kw) ||
+              (j.jobAd?.sections?.jobDescription?.text || "").toLowerCase().includes(kw);
+          }
+          return true;
+        })
+        .slice(0, 15)
+        .map((j: any) => ({
+          job_id: `sr-${j.id || j.uuid}`,
+          source: "smartrecruiters",
+          job_url: j.ref || j.company?.websiteUrl || "",
+          apply_url: j.ref || "",
+          date_posted: j.releasedDate?.split("T")[0] || "",
+          job_title: j.name || "Unknown",
+          seniority_level: j.experienceLevel?.name || null,
+          employment_type: j.typeOfEmployment?.name || null,
+          work_mode: null,
+          country: "Netherlands",
+          city: j.location?.city || null,
+          company_name: j.company?.name || company,
+          industry: j.industry?.name || null,
+          salary_min: null,
+          salary_max: null,
+          salary_currency: "EUR",
+          job_description_raw: (j.jobAd?.sections?.jobDescription?.text || "").replace(/<[^>]*>/g, "").substring(0, 1000),
+        }));
+    } catch { return []; }
+  };
+
+  console.log("Fetching SmartRecruiters companies...");
+  const results = await Promise.allSettled(SMARTRECRUITERS_COMPANIES.map(fetchCompany));
+  for (const r of results) {
+    if (r.status === "fulfilled") allJobs.push(...r.value);
+  }
+  return allJobs;
+}
+
 // ── Enrichment + Matching ──
 function enrichAndMatch(
   normalizedJobs: any[],
@@ -362,20 +431,21 @@ serve(async (req) => {
 
     // 1. Fetch from ALL sources in parallel
     console.log("Fetching from all sources in parallel...");
-    const [adzunaJobs, arbeitnowJobs, greenhouseJobs, leverJobs] =
+    const [adzunaJobs, arbeitnowJobs, greenhouseJobs, leverJobs, smartrecruitersJobs] =
       await Promise.all([
         fetchAdzuna(params),
         fetchArbeitnow(params),
         fetchGreenhouse(params),
         fetchLever(params),
+        fetchSmartRecruiters(params),
       ]);
 
-    console.log(`Results: Adzuna=${adzunaJobs.length}, Arbeitnow=${arbeitnowJobs.length}, Greenhouse=${greenhouseJobs.length}, Lever=${leverJobs.length}`);
+    console.log(`Results: Adzuna=${adzunaJobs.length}, Arbeitnow=${arbeitnowJobs.length}, Greenhouse=${greenhouseJobs.length}, Lever=${leverJobs.length}, SmartRecruiters=${smartrecruitersJobs.length}`);
 
     // Merge and deduplicate by company+title
     const seen = new Set<string>();
     const allJobs: any[] = [];
-    for (const job of [...adzunaJobs, ...arbeitnowJobs, ...greenhouseJobs, ...leverJobs]) {
+    for (const job of [...adzunaJobs, ...arbeitnowJobs, ...greenhouseJobs, ...leverJobs, ...smartrecruitersJobs]) {
       const key = `${job.company_name.toLowerCase()}_${job.job_title.toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -384,7 +454,7 @@ serve(async (req) => {
     }
 
     if (allJobs.length === 0) {
-      return new Response(JSON.stringify({ jobs: [], sources: { adzuna: 0, arbeitnow: 0, greenhouse: 0, lever: 0 } }), {
+      return new Response(JSON.stringify({ jobs: [], sources: { adzuna: 0, arbeitnow: 0, greenhouse: 0, lever: 0, smartrecruiters: 0 } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

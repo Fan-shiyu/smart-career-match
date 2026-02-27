@@ -4,6 +4,7 @@ import { FilterSidebar, defaultFilters } from "@/components/FilterSidebar";
 import { ResultsTable } from "@/components/ResultsTable";
 import { CVUpload } from "@/components/CVUpload";
 import { ExportPanel } from "@/components/ExportPanel";
+import { AdminBackfillPanel } from "@/components/AdminBackfillPanel";
 import { UserMenu } from "@/components/UserMenu";
 import { UsageMeter } from "@/components/UsageMeter";
 import { PaywallModal } from "@/components/PaywallModal";
@@ -76,7 +77,7 @@ function AppContent() {
     <div className="flex h-screen overflow-hidden bg-background">
       <FilterSidebar filters={filters} onFiltersChange={setFilters} onSearch={handleSearch} />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Header */}
         <header className={cn(
           "flex items-center justify-between border-b border-border bg-card shrink-0 shadow-sm",
@@ -142,6 +143,13 @@ function AppContent() {
 
         {/* Results - fills remaining height */}
         <ResultsTable jobs={jobs} />
+
+        {/* Admin backfill panel */}
+        {isAdmin && (
+          <div className="absolute bottom-4 right-4 z-20 w-80">
+            <AdminBackfillPanel />
+          </div>
+        )}
       </div>
 
       <PaywallModal open={paywallOpen} onOpenChange={setPaywallOpen} feature={paywallFeature} currentUsage={paywallUsage} />

@@ -1,73 +1,130 @@
-# Welcome to your Lovable project
+# Job Intelligence Platform
 
-## Project info
+AI-powered job search and decision intelligence platform designed to transform how professionals evaluate career opportunities.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
-## How can I edit this code?
+## Overview
 
-There are several ways of editing your application.
+Job Intelligence is a structured job evaluation platform that moves beyond traditional job boards.
 
-**Use Lovable**
+Instead of presenting unstructured listings, the platform aggregates job data, enriches it with AI-driven analysis, and converts it into structured intelligence. Users can evaluate opportunities based on skill fit, visa feasibility, commute impact, benefits, and career alignment — all in a single interface.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+The platform is built for serious professionals who want clarity, transparency, and measurable decision support when navigating competitive job markets.
 
-Changes made via Lovable will be committed automatically to this repo.
 
-**Use your preferred IDE**
+## Market Positioning
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Most job platforms focus on volume and browsing.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Job Intelligence focuses on:
 
-Follow these steps:
+- Structured data extraction
+- Measurable job–candidate alignment
+- Visa intelligence (Netherlands IND integration)
+- Commute and lifestyle impact
+- Decision-ready exports for professional comparison
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+The result is a tool that enables users to make informed, data-driven career decisions rather than relying on manual reading and guesswork.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Core Capabilities
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### Multi-Source Job Aggregation
 
-**Edit a file directly in GitHub**
+- Adzuna API
+- Greenhouse public job board API
+- Lever postings API
+- Company-direct ingestion (optional)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+All listings are normalized into a unified schema.
 
-**Use GitHub Codespaces**
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Full Job Description Retrieval
 
-## What technologies are used for this project?
+- No truncated descriptions
+- Automatic detail-page retrieval when required
+- Full-text storage for enrichment and matching
 
-This project is built with:
+This ensures AI analysis is performed on complete job data.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
 
-## How can I deploy this project?
+### AI Job Enrichment
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Structured extraction from full job descriptions, including:
 
-## Can I connect a custom domain to my Lovable project?
+- Hard skills
+- Software tools
+- Cloud platforms
+- Years of experience
+- Education requirements
+- Required languages
+- Benefits (learning budget, pension, transport allowance, etc.)
+- Visa sponsorship mentions
 
-Yes, you can!
+Enrichment results are cached and versioned using description hashes.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### CV Matching Engine
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Users upload their CV (PDF/DOCX) to receive:
+
+- Overall match score (0–100)
+- Skill overlap breakdown
+- Matched skills
+- Missing skills
+- Structured match explanation
+
+Matching is computed only for shortlisted jobs to maintain performance and scalability.
+
+
+### Visa Intelligence (Netherlands)
+
+- Integration with IND recognized sponsor database
+- Deterministic company name normalization and matching
+- Visa likelihood scoring (High / Medium / Low)
+- Transparent matching logic (exact / fuzzy / alias)
+
+Designed specifically for international professionals navigating Dutch sponsorship requirements.
+
+
+### Commute Analysis
+
+- Google Maps Distance Matrix integration
+- Distance and travel time calculation
+- Mode selection (driving / public transport / cycling)
+- Cached per user origin for efficiency
+
+Commute impact becomes part of the decision model.
+
+
+### Excel-Only Professional Export
+
+The platform exports structured `.xlsx` files designed for serious comparison and analysis:
+
+- Categorized column groups
+- Color-coded headers
+- Frozen panes
+- Filter-enabled structure
+- Multiple sheets (Overview / Full Data / Skill Gap)
+
+Exports are optimized for professional decision-making workflows.
+
+
+### Job Detail Dashboard
+
+Each job listing includes a structured intelligence dashboard:
+
+- Overview
+- Match breakdown
+- Skills and requirements
+- Visa and language signals
+- Benefits extraction
+- Commute analysis
+- Full job description
+
+
+### Authentication and Subscription Model
+
+- Email-based login and registration
+- Free / Pro / Premium tiers
+- Role-based admin control
+- Feature gating and usage tracking

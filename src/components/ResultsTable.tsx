@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ArrowUpDown, ExternalLink, Clock } from "lucide-react";
+import { ArrowUpDown, ExternalLink, Clock, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Job } from "@/types/job";
 import { MatchScoreBadge } from "./MatchScoreBadge";
 import { VisaBadge } from "./VisaBadge";
 import { WorkModeBadge } from "./WorkModeBadge";
 import { JobDetailDrawer } from "./JobDetailDrawer";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ResultsTableProps {
   jobs: Job[];
@@ -14,6 +15,7 @@ interface ResultsTableProps {
 type SortKey = string;
 
 const OVERVIEW_COLUMNS: { key: string; label: string; sortable?: boolean }[] = [
+  { key: "enrichment_status", label: "AI" },
   { key: "match_score_overall", label: "Match", sortable: true },
   { key: "job_title", label: "Title", sortable: true },
   { key: "company_name", label: "Company", sortable: true },
@@ -37,6 +39,21 @@ function formatSalary(j: Job) {
 
 function CellRenderer({ colKey, job }: { colKey: string; job: Job }) {
   switch (colKey) {
+    case "enrichment_status": {
+      const status = (job as any).enrichment_status || "pending";
+      if (status === "done") return (
+        <TooltipProvider><Tooltip><TooltipTrigger><CheckCircle2 className="h-3.5 w-3.5 text-score-high" /></TooltipTrigger>
+        <TooltipContent><p>AI enriched</p></TooltipContent></Tooltip></TooltipProvider>
+      );
+      if (status === "failed") return (
+        <TooltipProvider><Tooltip><TooltipTrigger><AlertCircle className="h-3.5 w-3.5 text-destructive" /></TooltipTrigger>
+        <TooltipContent><p>Enrichment failed</p></TooltipContent></Tooltip></TooltipProvider>
+      );
+      return (
+        <TooltipProvider><Tooltip><TooltipTrigger><Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" /></TooltipTrigger>
+        <TooltipContent><p>Pending enrichment</p></TooltipContent></Tooltip></TooltipProvider>
+      );
+    }
     case "match_score_overall":
       return <MatchScoreBadge score={job.match_score_overall} size="sm" />;
     case "work_mode":

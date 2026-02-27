@@ -29,6 +29,7 @@ const Index = () => {
           matchThreshold: filters.matchThreshold,
           strictMode: filters.strictMode,
           indSponsorOnly: filters.indSponsorOnly,
+          topN: filters.topN,
           candidateProfile: profile || undefined,
         },
       });

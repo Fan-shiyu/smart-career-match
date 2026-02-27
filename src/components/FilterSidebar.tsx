@@ -208,6 +208,20 @@ export function FilterSidebar({ filters, onFiltersChange, onSearch }: FilterSide
             <Label className="text-xs text-muted-foreground">Strict mode</Label>
             <Switch checked={filters.strictMode} onCheckedChange={(v) => update({ strictMode: v })} />
           </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1">Top N results</Label>
+            <Select value={String(filters.topN)} onValueChange={(v) => update({ topN: Number(v) })}>
+              <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">Top 10</SelectItem>
+                <SelectItem value="20">Top 20</SelectItem>
+                <SelectItem value="50">Top 50</SelectItem>
+                <SelectItem value="100">Top 100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </FilterGroup>
       </div>
 
@@ -238,4 +252,5 @@ export const defaultFilters: SearchFilters = {
   commuteMode: "transit",
   matchThreshold: 50,
   strictMode: false,
+  topN: 20,
 };

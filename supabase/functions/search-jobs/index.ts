@@ -47,6 +47,7 @@ interface SearchParams {
   matchThreshold: number;
   strictMode: boolean;
   indSponsorOnly: boolean;
+  topN: number;
 }
 
 // ── Adzuna fetcher ──
@@ -460,7 +461,8 @@ serve(async (req) => {
     }
 
     // 2. Load IND sponsors + AI enrichment IN PARALLEL
-    const jobsToEnrich = allJobs.slice(0, 40);
+    const enrichLimit = Math.min(allJobs.length, (params.topN || 20) * 2);
+    const jobsToEnrich = allJobs.slice(0, enrichLimit);
     const jobSummaries = jobsToEnrich.map(
       (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${j.job_description_raw?.substring(0, 400)}`
     );
@@ -585,7 +587,23 @@ serve(async (req) => {
       results = results.filter((j: any) => j.match_score_overall >= params.matchThreshold);
     }
 
-    results.sort((a: any, b: any) => b.match_score_overall - a.match_score_overall);
+    // Multi-key ranking: match score → date → salary → commute
+    results.sort((a: any, b: any) => {
+      if (b.match_score_overall !== a.match_score_overall) return b.match_score_overall - a.match_score_overall;
+      const dateA = a.date_posted || "";
+      const dateB = b.date_posted || "";
+      if (dateB !== dateA) return dateB.localeCompare(dateA);
+      const salA = a.salary_max ?? 0;
+      const salB = b.salary_max ?? 0;
+      if (salB !== salA) return salB - salA;
+      const comA = a.commute_time_min ?? 999;
+      const comB = b.commute_time_min ?? 999;
+      return comA - comB;
+    });
+
+    // Apply Top N limit
+    const topN = params.topN || 20;
+    results = results.slice(0, topN);
 
     return new Response(JSON.stringify({
       jobs: results,

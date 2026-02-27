@@ -59,23 +59,23 @@ const Index = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-border bg-card shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Briefcase className="h-4 w-4 text-primary" />
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Briefcase className="h-4.5 w-4.5 text-primary" />
               </div>
               <div>
-                <h1 className="text-sm font-bold text-foreground tracking-tight">Job Intelligence</h1>
+                <h1 className="text-sm font-extrabold text-foreground tracking-tight">Job Intelligence</h1>
                 <p className="text-xs text-muted-foreground">AI-Powered Matching Platform</p>
               </div>
             </div>
             <div className="h-6 w-px bg-border mx-2" />
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-xs text-accent-foreground font-medium">
               {isSearching ? (
-                <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Zap className="h-3.5 w-3.5 text-primary animate-pulse-glow" />
+                <Zap className="h-3.5 w-3.5" />
               )}
               <span className="font-mono">{jobs.length}</span> results
             </div>

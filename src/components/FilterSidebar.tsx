@@ -36,7 +36,7 @@ export function FilterSidebar({ filters, onFiltersChange, onSearch }: FilterSide
   const update = (partial: Partial<SearchFilters>) => onFiltersChange({ ...filters, ...partial });
 
   return (
-    <aside className="w-72 shrink-0 bg-sidebar border-r border-sidebar-border h-screen overflow-y-auto scrollbar-thin p-4 flex flex-col">
+    <aside className="w-72 shrink-0 bg-sidebar border-r border-sidebar-border h-screen overflow-y-auto scrollbar-thin p-5 flex flex-col shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-bold text-foreground tracking-wide">Filters</h2>
         <button

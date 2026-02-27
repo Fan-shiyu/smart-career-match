@@ -20,7 +20,7 @@ function AppContent() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallFeature, setPaywallFeature] = useState("");
   const [paywallUsage, setPaywallUsage] = useState("");
-  const { canSearch, trackEvent, usage, limits } = useUsage();
+  const { canSearch, trackEvent, usage, limits, isAdmin } = useUsage();
 
   const handleSearch = async () => {
     if (!canSearch()) {
@@ -102,6 +102,11 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-3">
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-semibold text-primary">
+                <span>⚡</span> Admin: All features unlocked
+              </div>
+            )}
             <UsageMeter />
             <div className="h-6 w-px bg-border" />
             <div className="w-56">

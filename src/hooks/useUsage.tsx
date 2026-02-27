@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { PlanId, getPlanConfig } from "@/lib/plans";
 
 interface UsageData {
@@ -25,6 +26,7 @@ interface UsageContextType {
   usage: UsageData;
   limits: PlanLimits;
   loading: boolean;
+  isAdmin: boolean;
   refresh: () => Promise<void>;
   trackEvent: (eventType: "search" | "export" | "cv_upload") => Promise<boolean>;
   canSearch: () => boolean;
@@ -48,6 +50,7 @@ const UsageContext = createContext<UsageContextType>({
   usage: { searchesToday: 0, exportsToday: 0, cvCount: 0 },
   limits: defaultLimits,
   loading: true,
+  isAdmin: false,
   refresh: async () => {},
   trackEvent: async () => true,
   canSearch: () => true,
@@ -57,6 +60,7 @@ const UsageContext = createContext<UsageContextType>({
 
 export function UsageProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
   const [usage, setUsage] = useState<UsageData>({ searchesToday: 0, exportsToday: 0, cvCount: 0 });
   const [limits, setLimits] = useState<PlanLimits>(defaultLimits);
   const [loading, setLoading] = useState(true);
@@ -127,22 +131,39 @@ export function UsageProvider({ children }: { children: ReactNode }) {
   };
 
   const canSearch = () => {
+    if (isAdmin) return true;
     if (limits.searchesPerDay === -1) return true;
     return usage.searchesToday < limits.searchesPerDay;
   };
 
   const canExport = (preset: string) => {
+    if (isAdmin) return true;
     if (limits.canExportFull) return true;
     return preset === "quick";
   };
 
   const canUploadCV = () => {
+    if (isAdmin) return true;
     if (limits.maxCVs === -1) return true;
     return usage.cvCount < limits.maxCVs;
   };
 
+  // Admin overrides limits for UI display
+  const effectiveLimits = isAdmin ? {
+    ...limits,
+    plan: limits.plan, // keep actual plan for display
+    searchesPerDay: -1,
+    maxResults: 100,
+    maxCVs: -1,
+    canUseCommute: true,
+    canUseVisa: true,
+    canUseBreakdown: true,
+    canSaveSearches: true,
+    canExportFull: true,
+  } : limits;
+
   return (
-    <UsageContext.Provider value={{ usage, limits, loading, refresh, trackEvent, canSearch, canExport, canUploadCV }}>
+    <UsageContext.Provider value={{ usage, limits: effectiveLimits, loading, isAdmin, refresh, trackEvent, canSearch, canExport, canUploadCV }}>
       {children}
     </UsageContext.Provider>
   );

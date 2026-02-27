@@ -47,6 +47,9 @@ function AppContent() {
           topN: Math.min(filters.topN, limits.maxResults),
           candidateProfile: profile || undefined,
           dataSourceFilter: filters.dataSourceFilter,
+          commuteOrigin: filters.commuteOrigin || undefined,
+          commuteMode: filters.commuteMode || undefined,
+          maxCommuteTime: filters.maxCommuteTime || undefined,
         },
       });
 

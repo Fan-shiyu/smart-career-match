@@ -7,24 +7,63 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GREENHOUSE_BOARDS = [
-  "booking", "adyen", "elastic", "messagebird", "mollie",
-  "takeaway", "picnic", "bunq", "coolblue", "rituals",
-  "tomtom", "leaseweb", "backbase", "lightspeedhq", "wetransfer",
-  "mymedia", "catawiki", "sendcloud", "sytac", "yoursurprise",
-  "viber", "happeo", "polarsteps", "meatable", "abn",
-  "studocu", "fabric", "optiver", "flowtraders", "imctrading",
-];
-const LEVER_BOARDS = [
-  "trivago", "gorillas", "hellofresh", "miro",
-  "personio", "contentful", "spendesk", "bynder",
-  "talentio", "framer",
-];
-const SMARTRECRUITERS_COMPANIES = [
-  "Shell", "Unilever", "Philips", "ING", "KPMG",
-  "Deloitte", "Heineken", "AkzoNobel", "ASML", "NXPSemiconductors",
-  "Wolters-Kluwer", "Randstad", "Aegon", "NN-Group",
-];
+// ── Company name normalization (shared between IND + jobs) ──
+const LEGAL_SUFFIXES = /\b(b\.?v\.?|n\.?v\.?|ltd\.?|inc\.?|gmbh|ag|s\.?a\.?|plc|llc|co\.?|corp\.?|holding|group|international|netherlands|nederland)\b/gi;
+
+function normalizeCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(LEGAL_SUFFIXES, "")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ── Fuzzy token similarity ──
+function tokenSimilarity(a: string, b: string): number {
+  const tokensA = new Set(a.split(" ").filter(t => t.length > 1));
+  const tokensB = new Set(b.split(" ").filter(t => t.length > 1));
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+  let intersection = 0;
+  for (const t of tokensA) if (tokensB.has(t)) intersection++;
+  return (2 * intersection) / (tokensA.size + tokensB.size);
+}
+
+// ── IND sponsor matching with exact + fuzzy ──
+function matchIndSponsor(
+  companyNormalized: string,
+  sponsorNormalizedSet: Set<string>,
+  sponsorNormalizedList: string[],
+  sponsorRawMap: Map<string, string>,
+): { isMatch: boolean; method: string; matchedName: string | null } {
+  // 1. Exact match
+  if (sponsorNormalizedSet.has(companyNormalized)) {
+    return { isMatch: true, method: "exact", matchedName: sponsorRawMap.get(companyNormalized) || companyNormalized };
+  }
+  
+  // 2. Prefix/contains match (e.g. "adyen" matches "adyen netherlands")
+  for (const sponsor of sponsorNormalizedList) {
+    if (sponsor.startsWith(companyNormalized) || companyNormalized.startsWith(sponsor)) {
+      return { isMatch: true, method: "prefix", matchedName: sponsorRawMap.get(sponsor) || sponsor };
+    }
+  }
+  
+  // 3. Fuzzy token match (threshold >= 0.80)
+  let bestScore = 0;
+  let bestSponsor = "";
+  for (const sponsor of sponsorNormalizedList) {
+    const score = tokenSimilarity(companyNormalized, sponsor);
+    if (score > bestScore) {
+      bestScore = score;
+      bestSponsor = sponsor;
+    }
+  }
+  if (bestScore >= 0.80) {
+    return { isMatch: true, method: "fuzzy", matchedName: sponsorRawMap.get(bestSponsor) || bestSponsor };
+  }
+  
+  return { isMatch: false, method: "none", matchedName: null };
+}
 
 interface SearchParams {
   keywords: string;
@@ -47,15 +86,9 @@ interface SearchParams {
   indSponsorOnly: boolean;
   topN: number;
   dataSourceFilter?: "all" | "aggregator" | "company_direct";
-}
-
-function normalizeCompanyName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\b(b\.?v\.?|n\.?v\.?|ltd\.?|inc\.?|gmbh|ag|s\.?a\.?|plc)\b/gi, "")
-    .replace(/[^\w\s]/g, "")
-    .trim()
-    .replace(/\s+/g, " ");
+  commuteOrigin?: string;
+  commuteMode?: string;
+  maxCommuteTime?: number;
 }
 
 // ── Adzuna fetcher ──
@@ -96,6 +129,8 @@ async function fetchAdzuna(params: SearchParams): Promise<any[]> {
       salary_currency: "EUR",
       job_description_raw: j.description?.replace(/<[^>]*>/g, "") || "",
       salary_text_raw: j.salary_min ? `${j.salary_min}-${j.salary_max}` : null,
+      work_lat: j.latitude || null,
+      work_lng: j.longitude || null,
     }));
   } catch (e) { console.error("Adzuna fetch error:", e); return []; }
 }
@@ -150,6 +185,15 @@ async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
 }
 
 // ── Greenhouse fetcher ──
+const GREENHOUSE_BOARDS = [
+  "booking", "adyen", "elastic", "messagebird", "mollie",
+  "takeaway", "picnic", "bunq", "coolblue", "rituals",
+  "tomtom", "leaseweb", "backbase", "lightspeedhq", "wetransfer",
+  "mymedia", "catawiki", "sendcloud", "sytac", "yoursurprise",
+  "viber", "happeo", "polarsteps", "meatable", "abn",
+  "studocu", "fabric", "optiver", "flowtraders", "imctrading",
+];
+
 async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
   const kw = (params.keywords || "").toLowerCase();
   const allJobs: any[] = [];
@@ -193,6 +237,12 @@ async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
 }
 
 // ── Lever fetcher ──
+const LEVER_BOARDS = [
+  "trivago", "gorillas", "hellofresh", "miro",
+  "personio", "contentful", "spendesk", "bynder",
+  "talentio", "framer",
+];
+
 async function fetchLever(params: SearchParams): Promise<any[]> {
   const kw = (params.keywords || "").toLowerCase();
   const allJobs: any[] = [];
@@ -238,6 +288,12 @@ async function fetchLever(params: SearchParams): Promise<any[]> {
 }
 
 // ── SmartRecruiters fetcher ──
+const SMARTRECRUITERS_COMPANIES = [
+  "Shell", "Unilever", "Philips", "ING", "KPMG",
+  "Deloitte", "Heineken", "AkzoNobel", "ASML", "NXPSemiconductors",
+  "Wolters-Kluwer", "Randstad", "Aegon", "NN-Group",
+];
+
 async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
   const kw = (params.keywords || "").toLowerCase();
   const allJobs: any[] = [];
@@ -286,18 +342,70 @@ async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
   return allJobs;
 }
 
+// ── Commute calculation via Google Distance Matrix ──
+async function computeCommute(
+  jobs: any[],
+  origin: string,
+  mode: string,
+): Promise<void> {
+  const GOOGLE_MAPS_KEY = Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if (!GOOGLE_MAPS_KEY || !origin) return;
+  
+  // Filter jobs with city info for commute
+  const jobsWithLocation = jobs.filter(j => j.city);
+  if (jobsWithLocation.length === 0) return;
+  
+  // Google Distance Matrix supports max 25 destinations per call
+  const batchSize = 25;
+  for (let i = 0; i < jobsWithLocation.length; i += batchSize) {
+    const batch = jobsWithLocation.slice(i, i + batchSize);
+    const destinations = batch.map(j => {
+      if (j.work_lat && j.work_lng) return `${j.work_lat},${j.work_lng}`;
+      return `${j.city}, Netherlands`;
+    }).join("|");
+    
+    try {
+      const travelMode = mode === "bicycling" ? "bicycling" : mode === "transit" ? "transit" : "driving";
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin + ", Netherlands")}&destinations=${encodeURIComponent(destinations)}&mode=${travelMode}&key=${GOOGLE_MAPS_KEY}`;
+      
+      const resp = await fetch(url);
+      if (!resp.ok) { console.error("Google Maps error:", resp.status); continue; }
+      const data = await resp.json();
+      
+      if (data.rows?.[0]?.elements) {
+        data.rows[0].elements.forEach((el: any, idx: number) => {
+          if (el.status === "OK") {
+            batch[idx].commute_distance_km = Math.round((el.distance?.value || 0) / 1000 * 10) / 10;
+            batch[idx].commute_time_min = Math.round((el.duration?.value || 0) / 60);
+            batch[idx].commute_time_text = el.duration?.text || null;
+            batch[idx].commute_mode = travelMode;
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Commute calculation error:", e);
+    }
+  }
+}
+
 // ── Enrichment + Matching ──
 function enrichAndMatch(
   normalizedJobs: any[],
   enrichedMap: Record<string, any>,
-  sponsorSet: Set<string>,
+  sponsorNormalizedSet: Set<string>,
+  sponsorNormalizedList: string[],
+  sponsorRawMap: Map<string, string>,
   profile: SearchParams["candidateProfile"],
   strictMode: boolean,
 ) {
   return normalizedJobs.map((job: any) => {
     const enriched = enrichedMap[job.job_id] || {};
     const companyNormalized = normalizeCompanyName(job.company_name);
-    const isIndSponsor = sponsorSet.has(companyNormalized);
+    
+    // IND sponsor matching with debug fields
+    const indMatch = matchIndSponsor(companyNormalized, sponsorNormalizedSet, sponsorNormalizedList, sponsorRawMap);
+    const isIndSponsor = indMatch.isMatch;
+    
     const visaMentioned = enriched.visa_sponsorship_mentioned || "unclear";
     const requiredLangs = enriched.required_languages || [];
     const hasEnglish = requiredLangs.some((l: string) => l.toLowerCase() === "english");
@@ -350,6 +458,9 @@ function enrichAndMatch(
       missingSkills = (enriched.hard_skills || []).filter((s: string) => !candidateSkills.includes(s.toLowerCase()));
     }
 
+    // Determine enrichment status
+    const hasEnrichment = Object.keys(enriched).length > 1;
+
     return {
       // A) Identifiers
       job_id: job.job_id,
@@ -360,6 +471,7 @@ function enrichAndMatch(
       date_posted: job.date_posted,
       date_scraped: new Date().toISOString(),
       job_status: "active",
+      data_source_type: job.data_source_type || "aggregator",
       // B) Job Basics
       job_title: job.job_title,
       job_title_normalized: job.job_title.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim(),
@@ -377,12 +489,12 @@ function enrichAndMatch(
       region_province: job.region_province || null,
       postal_code: null,
       work_address_raw: null,
-      work_lat: null,
-      work_lng: null,
-      commute_mode: null,
-      commute_distance_km: null,
-      commute_time_min: null,
-      commute_time_text: null,
+      work_lat: job.work_lat || null,
+      work_lng: job.work_lng || null,
+      commute_mode: job.commute_mode || null,
+      commute_distance_km: job.commute_distance_km || null,
+      commute_time_min: job.commute_time_min || null,
+      commute_time_text: job.commute_time_text || null,
       // D) Company
       company_name: job.company_name,
       company_name_normalized: companyNormalized,
@@ -405,6 +517,8 @@ function enrichAndMatch(
       language_level: enriched.language_level || null,
       visa_sponsorship_mentioned: visaMentioned,
       ind_registered_sponsor: isIndSponsor,
+      ind_match_method: indMatch.method,
+      ind_matched_name: indMatch.matchedName,
       visa_likelihood: visaLikelihood,
       relocation_support_mentioned: enriched.relocation_support_mentioned || "no",
       // G) Requirements
@@ -438,7 +552,9 @@ function enrichAndMatch(
       matched_skills: matchedSkills,
       missing_skills: missingSkills,
       must_have_missing_count: missingSkills.length,
-      match_explanation: null,
+      match_explanation: profile ? `Score based on ${matchedSkills.length} matched / ${missingSkills.length} missing skills` : null,
+      enrichment_status: hasEnrichment ? "done" : "pending",
+      match_status: profile ? "done" : "not_requested",
       // K) AI Writing Helpers (skipped)
       cv_improvement_suggestions: null,
       suggested_cv_keywords: [],
@@ -504,7 +620,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Fetch from ALL sources in parallel (including pre-ingested company_direct jobs)
+    // 1. Fetch from ALL sources in parallel
     console.log("Fetching from all sources in parallel...");
     const [adzunaJobs, arbeitnowJobs, greenhouseJobs, leverJobs, smartrecruitersJobs, companyDirectJobs] =
       await Promise.all([
@@ -558,7 +674,7 @@ serve(async (req) => {
 
     // Run IND sponsor lookup and AI enrichment concurrently
     const [indResult, aiResult] = await Promise.allSettled([
-      supabase.from("ind_sponsors").select("company_name_normalized"),
+      supabase.from("ind_sponsors").select("company_name, company_name_normalized"),
       fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
@@ -652,11 +768,27 @@ serve(async (req) => {
       ),
     ]);
 
-    // Process IND sponsors
-    let sponsorSet = new Set<string>();
+    // Process IND sponsors — normalize them the SAME way as job companies
+    let sponsorNormalizedSet = new Set<string>();
+    let sponsorNormalizedList: string[] = [];
+    let sponsorRawMap = new Map<string, string>();
+    
     if (indResult.status === "fulfilled") {
       const { data: indSponsors } = indResult.value;
-      sponsorSet = new Set((indSponsors || []).map((s: any) => s.company_name_normalized));
+      for (const s of (indSponsors || [])) {
+        const normalized = normalizeCompanyName(s.company_name_normalized || s.company_name);
+        sponsorNormalizedSet.add(normalized);
+        sponsorNormalizedList.push(normalized);
+        sponsorRawMap.set(normalized, s.company_name);
+      }
+      console.log(`Loaded ${sponsorNormalizedSet.size} unique normalized IND sponsors`);
+      
+      // QA: Log sample matches for debugging
+      const sampleCompanies = ["adyen", "elastic", "catawiki", "shell", "ing", "philips"];
+      for (const c of sampleCompanies) {
+        const match = matchIndSponsor(c, sponsorNormalizedSet, sponsorNormalizedList, sponsorRawMap);
+        console.log(`IND QA: "${c}" → ${match.isMatch ? "✓" : "✗"} (${match.method}) → ${match.matchedName || "none"}`);
+      }
     } else {
       console.error("IND sponsors load failed:", indResult.reason);
     }
@@ -673,6 +805,7 @@ serve(async (req) => {
           for (const ej of functionCall.args?.jobs || []) {
             enrichedMap[ej.job_id] = ej;
           }
+          console.log(`AI enriched ${Object.keys(enrichedMap).length}/${jobsToEnrich.length} jobs`);
         }
       } else {
         const errText = await aiResponse.text();
@@ -683,7 +816,7 @@ serve(async (req) => {
     }
 
     // 4. Enrich, match, filter
-    const finalJobs = enrichAndMatch(allJobs, enrichedMap, sponsorSet, params.candidateProfile, params.strictMode);
+    const finalJobs = enrichAndMatch(allJobs, enrichedMap, sponsorNormalizedSet, sponsorNormalizedList, sponsorRawMap, params.candidateProfile, params.strictMode);
 
     let results = finalJobs;
     if (params.workModes?.length > 0) {
@@ -713,6 +846,16 @@ serve(async (req) => {
     // Apply Top N limit
     const topN = params.topN || 20;
     results = results.slice(0, topN);
+
+    // 5. Commute calculation for shortlisted results
+    if (params.commuteOrigin && params.commuteMode) {
+      await computeCommute(results, params.commuteOrigin, params.commuteMode);
+      console.log(`Commute computed for ${results.filter((j: any) => j.commute_time_min).length}/${results.length} jobs`);
+    }
+
+    // Log IND match rate for QA
+    const indMatched = results.filter((j: any) => j.ind_registered_sponsor).length;
+    console.log(`IND sponsor match rate: ${indMatched}/${results.length} (${Math.round(indMatched / results.length * 100)}%)`);
 
     return new Response(JSON.stringify({
       jobs: results,

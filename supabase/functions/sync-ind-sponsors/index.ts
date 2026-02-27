@@ -30,60 +30,38 @@ serve(async (req) => {
 
     const html = await resp.text();
 
-    // Parse the HTML table - extract company names from table rows
-    // The page has a table with columns: Organisation | KvK number
+    // Parse the HTML table - company names are in <th> inside <tbody> <tr>
+    // Structure: <tr><th>Company Name</th><td>KvK number</td></tr>
     const companies: { company_name: string; company_name_normalized: string }[] = [];
 
-    // Match table rows: look for <td> pairs inside <tr>
-    const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<\/tr>/gs;
-    let match;
-    while ((match = rowRegex.exec(html)) !== null) {
-      const rawName = match[1]
-        .replace(/<[^>]*>/g, "") // strip HTML tags
-        .replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"')
-        .replace(/&#039;/g, "'")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .trim();
+    // Extract tbody content first
+    const tbodyMatch = html.match(/<tbody>([\s\S]*?)<\/tbody>/);
+    if (tbodyMatch) {
+      const tbody = tbodyMatch[1];
+      // Match each row's first <th> which contains the company name
+      const rowRegex = /<tr>\s*<th>(.*?)<\/th>/gs;
+      let match;
+      while ((match = rowRegex.exec(tbody)) !== null) {
+        const rawName = match[1]
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&#039;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&nbsp;/g, " ")
+          .trim();
 
-      if (rawName && rawName !== "Organisation" && rawName.length > 1) {
-        companies.push({
-          company_name: rawName,
-          company_name_normalized: rawName.toLowerCase().trim(),
-        });
+        if (rawName && rawName.length > 1) {
+          companies.push({
+            company_name: rawName,
+            company_name_normalized: rawName.toLowerCase().trim(),
+          });
+        }
       }
     }
 
     console.log(`Parsed ${companies.length} companies from IND register`);
-
-    if (companies.length === 0) {
-      // Fallback: try a simpler regex for different HTML structure
-      const cellRegex = /<td[^>]*class="[^"]*"[^>]*>(.*?)<\/td>/gs;
-      const cells: string[] = [];
-      let cellMatch;
-      while ((cellMatch = cellRegex.exec(html)) !== null) {
-        cells.push(
-          cellMatch[1]
-            .replace(/<[^>]*>/g, "")
-            .replace(/&amp;/g, "&")
-            .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, "'")
-            .trim()
-        );
-      }
-      // Every other cell is a company name (odd indices are KvK numbers)
-      for (let i = 0; i < cells.length; i += 2) {
-        const name = cells[i];
-        if (name && name !== "Organisation" && name.length > 1) {
-          companies.push({
-            company_name: name,
-            company_name_normalized: name.toLowerCase().trim(),
-          });
-        }
-      }
-      console.log(`Fallback parsing found ${companies.length} companies`);
-    }
 
     if (companies.length === 0) {
       throw new Error("Could not parse any companies from IND page");

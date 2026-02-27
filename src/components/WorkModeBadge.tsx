@@ -14,7 +14,9 @@ export function WorkModeBadge({ mode }: WorkModeBadgeProps) {
     "On-site": { icon: MapPin, className: "text-secondary-foreground bg-secondary border-border" },
   };
 
-  const { icon: Icon, className } = config[mode];
+  const modeConfig = config[mode as keyof typeof config];
+  if (!modeConfig) return <span className="text-muted-foreground text-xs">{mode}</span>;
+  const { icon: Icon, className } = modeConfig;
 
   return (
     <span className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border", className)}>

@@ -7,7 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Major NL tech companies on Greenhouse/Lever/SmartRecruiters
 const GREENHOUSE_BOARDS = [
   "booking", "adyen", "elastic", "messagebird", "mollie",
   "takeaway", "picnic", "bunq", "coolblue", "rituals",
@@ -21,7 +20,6 @@ const LEVER_BOARDS = [
   "personio", "contentful", "spendesk", "bynder",
   "talentio", "framer",
 ];
-// SmartRecruiters public Posting API (no auth needed)
 const SMARTRECRUITERS_COMPANIES = [
   "Shell", "Unilever", "Philips", "ING", "KPMG",
   "Deloitte", "Heineken", "AkzoNobel", "ASML", "NXPSemiconductors",
@@ -50,12 +48,20 @@ interface SearchParams {
   topN: number;
 }
 
+function normalizeCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\b(b\.?v\.?|n\.?v\.?|ltd\.?|inc\.?|gmbh|ag|s\.?a\.?|plc)\b/gi, "")
+    .replace(/[^\w\s]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 // ── Adzuna fetcher ──
 async function fetchAdzuna(params: SearchParams): Promise<any[]> {
   const ADZUNA_APP_ID = Deno.env.get("ADZUNA_APP_ID");
   const ADZUNA_APP_KEY = Deno.env.get("ADZUNA_APP_KEY");
   if (!ADZUNA_APP_ID || !ADZUNA_APP_KEY) return [];
-
   const url = new URL("https://api.adzuna.com/v1/api/jobs/nl/search/1");
   url.searchParams.set("app_id", ADZUNA_APP_ID);
   url.searchParams.set("app_key", ADZUNA_APP_KEY);
@@ -67,7 +73,6 @@ async function fetchAdzuna(params: SearchParams): Promise<any[]> {
   if (params.postedWithin === "24h") url.searchParams.set("max_days_old", "1");
   else if (params.postedWithin === "7d") url.searchParams.set("max_days_old", "7");
   else if (params.postedWithin === "30d") url.searchParams.set("max_days_old", "30");
-
   console.log("Fetching Adzuna...");
   try {
     const resp = await fetch(url.toString());
@@ -76,13 +81,11 @@ async function fetchAdzuna(params: SearchParams): Promise<any[]> {
     return (data.results || []).map((j: any) => ({
       job_id: `adz-${j.id}`,
       source: "adzuna",
+      source_job_id: String(j.id),
       job_url: j.redirect_url || "",
       apply_url: j.redirect_url || "",
       date_posted: j.created?.split("T")[0] || "",
       job_title: j.title?.replace(/<[^>]*>/g, "") || "Unknown",
-      seniority_level: null,
-      employment_type: null,
-      work_mode: null,
       country: "Netherlands",
       city: j.location?.display_name?.split(",")[0]?.trim() || null,
       company_name: j.company?.display_name || "Unknown",
@@ -91,14 +94,14 @@ async function fetchAdzuna(params: SearchParams): Promise<any[]> {
       salary_max: j.salary_max ? Math.round(j.salary_max) : null,
       salary_currency: "EUR",
       job_description_raw: j.description?.replace(/<[^>]*>/g, "") || "",
+      salary_text_raw: j.salary_min ? `${j.salary_min}-${j.salary_max}` : null,
     }));
   } catch (e) { console.error("Adzuna fetch error:", e); return []; }
 }
 
-// ── Arbeitnow fetcher (free, no key) ──
+// ── Arbeitnow fetcher ──
 async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
   const url = new URL("https://www.arbeitnow.com/api/job-board-api");
-  // Arbeitnow doesn't support keyword search via params well, but we can filter client-side
   console.log("Fetching Arbeitnow...");
   try {
     const resp = await fetch(url.toString());
@@ -106,7 +109,6 @@ async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
     const data = await resp.json();
     const kw = (params.keywords || "").toLowerCase();
     let jobs = data.data || [];
-    // Filter for Netherlands
     jobs = jobs.filter((j: any) => {
       const loc = (j.location || "").toLowerCase();
       return loc.includes("netherlands") || loc.includes("nederland") ||
@@ -119,7 +121,6 @@ async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
         loc.includes("maastricht") || loc.includes("haarlem") ||
         loc.includes("almere") || loc.includes("nijmegen");
     });
-    // Filter by keyword if provided
     if (kw) {
       jobs = jobs.filter((j: any) =>
         (j.title || "").toLowerCase().includes(kw) ||
@@ -131,21 +132,18 @@ async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
     return jobs.slice(0, 30).map((j: any) => ({
       job_id: `arb-${j.slug || j.url?.split("/").pop() || Math.random().toString(36).slice(2)}`,
       source: "arbeitnow",
+      source_job_id: j.slug || null,
       job_url: j.url || "",
       apply_url: j.url || "",
       date_posted: j.created_at ? new Date(j.created_at * 1000).toISOString().split("T")[0] : "",
       job_title: j.title || "Unknown",
-      seniority_level: null,
       employment_type: j.job_types?.includes("full_time") ? "Full-time" : j.job_types?.includes("part_time") ? "Part-time" : null,
       work_mode: j.remote ? "Remote" : null,
       country: "Netherlands",
       city: (j.location || "").split(",")[0]?.trim() || null,
       company_name: j.company_name || "Unknown",
-      industry: null,
-      salary_min: null,
-      salary_max: null,
       salary_currency: "EUR",
-      job_description_raw: (j.description || "").replace(/<[^>]*>/g, "").substring(0, 1000),
+      job_description_raw: (j.description || "").replace(/<[^>]*>/g, "").substring(0, 2000),
     }));
   } catch (e) { console.error("Arbeitnow fetch error:", e); return []; }
 }
@@ -154,7 +152,6 @@ async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
 async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
   const kw = (params.keywords || "").toLowerCase();
   const allJobs: any[] = [];
-
   const fetchBoard = async (board: string) => {
     try {
       const resp = await fetch(`https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`);
@@ -168,40 +165,29 @@ async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
             loc.includes("den haag") || loc.includes("the hague") ||
             loc.includes("eindhoven") || loc.includes("tilburg");
           if (!isNL) return false;
-          if (kw) {
-            return (j.title || "").toLowerCase().includes(kw) ||
-              (j.content || "").toLowerCase().includes(kw);
-          }
+          if (kw) return (j.title || "").toLowerCase().includes(kw) || (j.content || "").toLowerCase().includes(kw);
           return true;
         })
         .slice(0, 10)
         .map((j: any) => ({
           job_id: `gh-${j.id}`,
           source: "greenhouse",
+          source_job_id: String(j.id),
           job_url: j.absolute_url || "",
           apply_url: j.absolute_url || "",
           date_posted: j.updated_at?.split("T")[0] || "",
           job_title: j.title || "Unknown",
-          seniority_level: null,
-          employment_type: null,
-          work_mode: null,
           country: "Netherlands",
           city: (j.location?.name || "").split(",")[0]?.trim() || null,
           company_name: board.charAt(0).toUpperCase() + board.slice(1),
-          industry: null,
-          salary_min: null,
-          salary_max: null,
-          salary_currency: "EUR",
-          job_description_raw: (j.content || "").replace(/<[^>]*>/g, "").substring(0, 1000),
+          job_description_raw: (j.content || "").replace(/<[^>]*>/g, "").substring(0, 2000),
+          department: j.departments?.[0]?.name || null,
         }));
     } catch { return []; }
   };
-
   console.log("Fetching Greenhouse boards...");
   const results = await Promise.allSettled(GREENHOUSE_BOARDS.map(fetchBoard));
-  for (const r of results) {
-    if (r.status === "fulfilled") allJobs.push(...r.value);
-  }
+  for (const r of results) if (r.status === "fulfilled") allJobs.push(...r.value);
   return allJobs;
 }
 
@@ -209,7 +195,6 @@ async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
 async function fetchLever(params: SearchParams): Promise<any[]> {
   const kw = (params.keywords || "").toLowerCase();
   const allJobs: any[] = [];
-
   const fetchBoard = async (board: string) => {
     try {
       const resp = await fetch(`https://api.lever.co/v0/postings/${board}?mode=json`);
@@ -223,48 +208,38 @@ async function fetchLever(params: SearchParams): Promise<any[]> {
             loc.includes("den haag") || loc.includes("the hague") ||
             loc.includes("eindhoven");
           if (!isNL) return false;
-          if (kw) {
-            return (j.text || "").toLowerCase().includes(kw) ||
-              (j.descriptionPlain || "").toLowerCase().includes(kw);
-          }
+          if (kw) return (j.text || "").toLowerCase().includes(kw) || (j.descriptionPlain || "").toLowerCase().includes(kw);
           return true;
         })
         .slice(0, 10)
         .map((j: any) => ({
           job_id: `lv-${j.id}`,
           source: "lever",
+          source_job_id: j.id,
           job_url: j.hostedUrl || "",
           apply_url: j.applyUrl || j.hostedUrl || "",
           date_posted: j.createdAt ? new Date(j.createdAt).toISOString().split("T")[0] : "",
           job_title: j.text || "Unknown",
-          seniority_level: null,
           employment_type: j.categories?.commitment || null,
           work_mode: j.workplaceType === "remote" ? "Remote" : j.workplaceType === "onSite" ? "On-site" : j.workplaceType === "hybrid" ? "Hybrid" : null,
           country: "Netherlands",
           city: (j.categories?.location || "").split(",")[0]?.split("-")[0]?.trim() || null,
           company_name: board.charAt(0).toUpperCase() + board.slice(1),
-          industry: null,
-          salary_min: null,
-          salary_max: null,
-          salary_currency: "EUR",
-          job_description_raw: (j.descriptionPlain || "").substring(0, 1000),
+          department: j.categories?.department || null,
+          job_description_raw: (j.descriptionPlain || "").substring(0, 2000),
         }));
     } catch { return []; }
   };
-
   console.log("Fetching Lever boards...");
   const results = await Promise.allSettled(LEVER_BOARDS.map(fetchBoard));
-  for (const r of results) {
-    if (r.status === "fulfilled") allJobs.push(...r.value);
-  }
+  for (const r of results) if (r.status === "fulfilled") allJobs.push(...r.value);
   return allJobs;
 }
 
-// ── SmartRecruiters fetcher (public Posting API, no auth) ──
+// ── SmartRecruiters fetcher ──
 async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
   const kw = (params.keywords || "").toLowerCase();
   const allJobs: any[] = [];
-
   const fetchCompany = async (company: string) => {
     try {
       const url = `https://api.smartrecruiters.com/v1/companies/${company}/postings?limit=100`;
@@ -280,40 +255,33 @@ async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
             loc.includes("eindhoven") || loc.includes("tilburg") || loc.includes("delft") ||
             loc.includes("leiden") || loc.includes("arnhem") || loc.includes("veldhoven");
           if (!isNL) return false;
-          if (kw) {
-            return (j.name || "").toLowerCase().includes(kw) ||
-              (j.jobAd?.sections?.jobDescription?.text || "").toLowerCase().includes(kw);
-          }
+          if (kw) return (j.name || "").toLowerCase().includes(kw) || (j.jobAd?.sections?.jobDescription?.text || "").toLowerCase().includes(kw);
           return true;
         })
         .slice(0, 15)
         .map((j: any) => ({
           job_id: `sr-${j.id || j.uuid}`,
           source: "smartrecruiters",
+          source_job_id: j.id || j.uuid,
           job_url: j.ref || j.company?.websiteUrl || "",
           apply_url: j.ref || "",
           date_posted: j.releasedDate?.split("T")[0] || "",
           job_title: j.name || "Unknown",
           seniority_level: j.experienceLevel?.name || null,
           employment_type: j.typeOfEmployment?.name || null,
-          work_mode: null,
           country: "Netherlands",
           city: j.location?.city || null,
+          region_province: j.location?.region || null,
           company_name: j.company?.name || company,
           industry: j.industry?.name || null,
-          salary_min: null,
-          salary_max: null,
-          salary_currency: "EUR",
-          job_description_raw: (j.jobAd?.sections?.jobDescription?.text || "").replace(/<[^>]*>/g, "").substring(0, 1000),
+          department: j.department?.label || null,
+          job_description_raw: (j.jobAd?.sections?.jobDescription?.text || "").replace(/<[^>]*>/g, "").substring(0, 2000),
         }));
     } catch { return []; }
   };
-
   console.log("Fetching SmartRecruiters companies...");
   const results = await Promise.allSettled(SMARTRECRUITERS_COMPANIES.map(fetchCompany));
-  for (const r of results) {
-    if (r.status === "fulfilled") allJobs.push(...r.value);
-  }
+  for (const r of results) if (r.status === "fulfilled") allJobs.push(...r.value);
   return allJobs;
 }
 
@@ -327,7 +295,7 @@ function enrichAndMatch(
 ) {
   return normalizedJobs.map((job: any) => {
     const enriched = enrichedMap[job.job_id] || {};
-    const companyNormalized = job.company_name.toLowerCase().trim();
+    const companyNormalized = normalizeCompanyName(job.company_name);
     const isIndSponsor = sponsorSet.has(companyNormalized);
     const visaMentioned = enriched.visa_sponsorship_mentioned || "unclear";
     const requiredLangs = enriched.required_languages || [];
@@ -350,28 +318,22 @@ function enrichAndMatch(
     if (profile) {
       const candidateSkills = profile.hard_skills.map((s) => s.toLowerCase());
       const candidateTools = profile.software_tools.map((s) => s.toLowerCase());
-
       matchedSkills = jobSkills.filter((s: string) => candidateSkills.includes(s));
       missingSkills = jobSkills.filter((s: string) => !candidateSkills.includes(s));
       const skillScore = jobSkills.length > 0 ? (matchedSkills.length / jobSkills.length) * 100 : 50;
-
       const matchedTools = jobTools.filter((t: string) => candidateTools.includes(t));
       const toolScore = jobTools.length > 0 ? (matchedTools.length / jobTools.length) * 100 : 50;
-
       const seniorityLevels = ["junior", "mid", "senior", "lead", "manager"];
       const jobSenIdx = seniorityLevels.indexOf((enriched.seniority_level || "").toLowerCase());
       const candSenIdx = seniorityLevels.indexOf(profile.seniority.toLowerCase());
       const seniorityScore = jobSenIdx >= 0 && candSenIdx >= 0
         ? Math.max(0, 100 - Math.abs(jobSenIdx - candSenIdx) * 25) : 50;
-
       const jobExpMin = enriched.years_experience_min || 0;
       const expDiff = profile.years_experience - jobExpMin;
       const expScore = expDiff >= 0 ? 100 : Math.max(0, 100 + expDiff * 20);
-
       const candidateLangs = profile.languages.map((l) => l.toLowerCase());
       const langMatch = requiredLangs.filter((l: string) => candidateLangs.includes(l.toLowerCase()));
       const langScore = requiredLangs.length > 0 ? (langMatch.length / requiredLangs.length) * 100 : 100;
-
       matchBreakdown = {
         hard_skills: Math.round(skillScore),
         tools: Math.round(toolScore),
@@ -379,38 +341,112 @@ function enrichAndMatch(
         experience: Math.round(expScore),
         language: Math.round(langScore),
       };
-
-      matchScore = Math.round(
-        skillScore * 0.4 + toolScore * 0.2 + seniorityScore * 0.15 + expScore * 0.15 + langScore * 0.1
-      );
-
+      matchScore = Math.round(skillScore * 0.4 + toolScore * 0.2 + seniorityScore * 0.15 + expScore * 0.15 + langScore * 0.1);
       if (strictMode && missingSkills.length > 0) {
         matchScore = Math.max(0, matchScore - missingSkills.length * 10);
       }
-
       matchedSkills = (enriched.hard_skills || []).filter((s: string) => candidateSkills.includes(s.toLowerCase()));
       missingSkills = (enriched.hard_skills || []).filter((s: string) => !candidateSkills.includes(s.toLowerCase()));
     }
 
     return {
-      ...job,
-      hard_skills: enriched.hard_skills || [],
-      software_tools: enriched.software_tools || [],
-      soft_skills: enriched.soft_skills || [],
-      years_experience_min: enriched.years_experience_min || null,
-      education_level: enriched.education_level || null,
+      // A) Identifiers
+      job_id: job.job_id,
+      source: job.source,
+      source_job_id: job.source_job_id || null,
+      job_url: job.job_url,
+      apply_url: job.apply_url,
+      date_posted: job.date_posted,
+      date_scraped: new Date().toISOString(),
+      job_status: "active",
+      // B) Job Basics
+      job_title: job.job_title,
+      job_title_normalized: job.job_title.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim(),
+      seniority_level: enriched.seniority_level || job.seniority_level || null,
+      employment_type: enriched.employment_type || job.employment_type || null,
+      contract_type: enriched.contract_type || null,
+      work_mode: enriched.work_mode || job.work_mode || null,
+      remote_region: enriched.remote_region || null,
+      hours_per_week_min: enriched.hours_per_week_min || null,
+      hours_per_week_max: enriched.hours_per_week_max || null,
+      department: job.department || enriched.department || null,
+      // C) Location
+      country: job.country || "Netherlands",
+      city: job.city || null,
+      region_province: job.region_province || null,
+      postal_code: null,
+      work_address_raw: null,
+      work_lat: null,
+      work_lng: null,
+      commute_mode: null,
+      commute_distance_km: null,
+      commute_time_min: null,
+      commute_time_text: null,
+      // D) Company
+      company_name: job.company_name,
+      company_name_normalized: companyNormalized,
+      company_website: null,
+      company_linkedin_url: null,
+      industry: job.industry || null,
+      company_size: null,
+      company_type: null,
+      // E) Compensation
+      salary_min: job.salary_min || enriched.salary_min || null,
+      salary_max: job.salary_max || enriched.salary_max || null,
+      salary_currency: job.salary_currency || "EUR",
+      salary_period: enriched.salary_period || null,
+      salary_text_raw: job.salary_text_raw || null,
+      bonus_mentioned: enriched.bonus_mentioned || "no",
+      equity_mentioned: enriched.equity_mentioned || "no",
+      // F) Language & Visa
+      job_description_language: enriched.job_description_language || null,
       required_languages: requiredLangs,
-      seniority_level: enriched.seniority_level || job.seniority_level,
-      work_mode: enriched.work_mode || job.work_mode,
+      language_level: enriched.language_level || null,
       visa_sponsorship_mentioned: visaMentioned,
       ind_registered_sponsor: isIndSponsor,
       visa_likelihood: visaLikelihood,
-      matched_skills: matchedSkills,
-      missing_skills: missingSkills,
+      relocation_support_mentioned: enriched.relocation_support_mentioned || "no",
+      // G) Requirements
+      years_experience_min: enriched.years_experience_min || null,
+      education_level: enriched.education_level || null,
+      degree_fields: enriched.degree_fields || [],
+      certifications: enriched.certifications || [],
+      // H) Skills
+      hard_skills: enriched.hard_skills || [],
+      software_tools: enriched.software_tools || [],
+      cloud_platforms: enriched.cloud_platforms || [],
+      ml_ds_methods: enriched.ml_ds_methods || [],
+      data_stack: enriched.data_stack || [],
+      soft_skills: enriched.soft_skills || [],
+      nice_to_have_skills: enriched.nice_to_have_skills || [],
+      // I) Benefits
+      pension: enriched.pension || "no",
+      health_insurance: enriched.health_insurance || "no",
+      learning_budget: enriched.learning_budget || "no",
+      learning_budget_amount: enriched.learning_budget_amount || null,
+      transport_allowance: enriched.transport_allowance || "no",
+      car_lease: enriched.car_lease || "no",
+      home_office_budget: enriched.home_office_budget || "no",
+      gym_wellbeing: enriched.gym_wellbeing || "no",
+      extra_holidays: enriched.extra_holidays || "no",
+      parental_leave: enriched.parental_leave || "no",
+      benefits_text_raw: enriched.benefits_text_raw || null,
+      // J) Matching
       match_score_overall: matchScore,
       match_score_breakdown: matchBreakdown,
-      commute_distance_km: null,
-      commute_time_min: null,
+      matched_skills: matchedSkills,
+      missing_skills: missingSkills,
+      must_have_missing_count: missingSkills.length,
+      match_explanation: null,
+      // K) AI Writing Helpers (skipped)
+      cv_improvement_suggestions: null,
+      suggested_cv_keywords: [],
+      cover_letter_angle: null,
+      interview_topics_to_prepare: [],
+      // L) Raw Text
+      job_description_raw: job.job_description_raw || "",
+      requirements_raw: enriched.requirements_raw || null,
+      company_description_raw: null,
     };
   });
 }
@@ -443,11 +479,11 @@ serve(async (req) => {
 
     console.log(`Results: Adzuna=${adzunaJobs.length}, Arbeitnow=${arbeitnowJobs.length}, Greenhouse=${greenhouseJobs.length}, Lever=${leverJobs.length}, SmartRecruiters=${smartrecruitersJobs.length}`);
 
-    // Merge and deduplicate by company+title
+    // Merge and deduplicate
     const seen = new Set<string>();
     const allJobs: any[] = [];
     for (const job of [...adzunaJobs, ...arbeitnowJobs, ...greenhouseJobs, ...leverJobs, ...smartrecruitersJobs]) {
-      const key = `${job.company_name.toLowerCase()}_${job.job_title.toLowerCase()}`;
+      const key = `${(job.company_name || "").toLowerCase()}_${(job.job_title || "").toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
         allJobs.push(job);
@@ -460,21 +496,18 @@ serve(async (req) => {
       });
     }
 
-    // 2. Load IND sponsors + AI enrichment IN PARALLEL
+    // 2. AI enrichment (limit to topN*2 for performance)
     const enrichLimit = Math.min(allJobs.length, (params.topN || 20) * 2);
     const jobsToEnrich = allJobs.slice(0, enrichLimit);
     const jobSummaries = jobsToEnrich.map(
-      (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${j.job_description_raw?.substring(0, 400)}`
+      (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${(j.job_description_raw || "").substring(0, 600)}`
     );
 
     let enrichedMap: Record<string, any> = {};
-    let enrichmentStatus = "success";
 
     // Run IND sponsor lookup and AI enrichment concurrently
     const [indResult, aiResult] = await Promise.allSettled([
-      // IND sponsors
       supabase.from("ind_sponsors").select("company_name_normalized"),
-      // AI enrichment
       fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
@@ -486,7 +519,7 @@ serve(async (req) => {
                 role: "user",
                 parts: [
                   {
-                    text: `You are a job listing analyzer. Extract structured data ONLY from what is explicitly stated in the job description. Do NOT infer, guess, or fabricate any information. If a field is not mentioned, use null or empty arrays. Be strictly accurate.\n\nAnalyze these ${jobsToEnrich.length} jobs and extract ONLY explicitly mentioned information:\n\n${jobSummaries.join("\n---\n")}`,
+                    text: `You are a job listing analyzer. Extract structured data ONLY from what is explicitly stated. Do NOT infer, guess, or fabricate. If a field is not mentioned, use null or empty arrays.\n\nAnalyze these ${jobsToEnrich.length} jobs:\n\n${jobSummaries.join("\n---\n")}`,
                   },
                 ],
               },
@@ -508,13 +541,43 @@ serve(async (req) => {
                               job_id: { type: "STRING" },
                               hard_skills: { type: "ARRAY", items: { type: "STRING" } },
                               software_tools: { type: "ARRAY", items: { type: "STRING" } },
+                              cloud_platforms: { type: "ARRAY", items: { type: "STRING" } },
+                              ml_ds_methods: { type: "ARRAY", items: { type: "STRING" } },
+                              data_stack: { type: "ARRAY", items: { type: "STRING" } },
                               soft_skills: { type: "ARRAY", items: { type: "STRING" } },
+                              nice_to_have_skills: { type: "ARRAY", items: { type: "STRING" } },
                               years_experience_min: { type: "INTEGER" },
                               education_level: { type: "STRING" },
+                              degree_fields: { type: "ARRAY", items: { type: "STRING" } },
+                              certifications: { type: "ARRAY", items: { type: "STRING" } },
                               required_languages: { type: "ARRAY", items: { type: "STRING" } },
+                              language_level: { type: "STRING" },
                               seniority_level: { type: "STRING" },
+                              employment_type: { type: "STRING" },
+                              contract_type: { type: "STRING" },
                               work_mode: { type: "STRING" },
+                              remote_region: { type: "STRING" },
+                              hours_per_week_min: { type: "INTEGER" },
+                              hours_per_week_max: { type: "INTEGER" },
+                              department: { type: "STRING" },
                               visa_sponsorship_mentioned: { type: "STRING" },
+                              relocation_support_mentioned: { type: "STRING" },
+                              job_description_language: { type: "STRING" },
+                              salary_period: { type: "STRING" },
+                              bonus_mentioned: { type: "STRING" },
+                              equity_mentioned: { type: "STRING" },
+                              pension: { type: "STRING" },
+                              health_insurance: { type: "STRING" },
+                              learning_budget: { type: "STRING" },
+                              learning_budget_amount: { type: "STRING" },
+                              transport_allowance: { type: "STRING" },
+                              car_lease: { type: "STRING" },
+                              home_office_budget: { type: "STRING" },
+                              gym_wellbeing: { type: "STRING" },
+                              extra_holidays: { type: "STRING" },
+                              parental_leave: { type: "STRING" },
+                              benefits_text_raw: { type: "STRING" },
+                              requirements_raw: { type: "STRING" },
                             },
                             required: ["job_id"],
                           },
@@ -532,15 +595,13 @@ serve(async (req) => {
                 allowedFunctionNames: ["enrich_jobs"],
               },
             },
-            generationConfig: {
-              temperature: 0,
-            },
+            generationConfig: { temperature: 0 },
           }),
         }
       ),
     ]);
 
-    // Process IND sponsors result
+    // Process IND sponsors
     let sponsorSet = new Set<string>();
     if (indResult.status === "fulfilled") {
       const { data: indSponsors } = indResult.value;
@@ -549,7 +610,7 @@ serve(async (req) => {
       console.error("IND sponsors load failed:", indResult.reason);
     }
 
-    // Process AI enrichment result
+    // Process AI enrichment
     if (aiResult.status === "fulfilled") {
       const aiResponse = aiResult.value;
       if (aiResponse.ok) {
@@ -558,19 +619,16 @@ serve(async (req) => {
           (p: any) => p.functionCall
         )?.functionCall;
         if (functionCall) {
-          const parsed = functionCall.args;
-          for (const ej of parsed.jobs || []) {
+          for (const ej of functionCall.args?.jobs || []) {
             enrichedMap[ej.job_id] = ej;
           }
         }
       } else {
         const errText = await aiResponse.text();
         console.error("Gemini enrichment failed:", aiResponse.status, errText);
-        enrichmentStatus = aiResponse.status === 429 ? "rate_limited" : "failed";
       }
     } else {
       console.error("AI enrichment error:", aiResult.reason);
-      enrichmentStatus = "failed";
     }
 
     // 4. Enrich, match, filter
@@ -587,7 +645,7 @@ serve(async (req) => {
       results = results.filter((j: any) => j.match_score_overall >= params.matchThreshold);
     }
 
-    // Multi-key ranking: match score → date → salary → commute
+    // Multi-key ranking
     results.sort((a: any, b: any) => {
       if (b.match_score_overall !== a.match_score_overall) return b.match_score_overall - a.match_score_overall;
       const dateA = a.date_posted || "";
@@ -612,6 +670,7 @@ serve(async (req) => {
         arbeitnow: arbeitnowJobs.length,
         greenhouse: greenhouseJobs.length,
         lever: leverJobs.length,
+        smartrecruiters: smartrecruitersJobs.length,
       },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

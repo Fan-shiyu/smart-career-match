@@ -35,14 +35,24 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
+          temperature: 0,
           messages: [
             {
               role: "system",
-              content: `You are a CV/resume parser. Extract structured information from the provided CV text. Be accurate and do not hallucinate. If information is not found, use null or empty arrays.`,
+              content: `You are a strict CV/resume parser. Your job is to extract ONLY information that is EXPLICITLY stated in the CV text. 
+
+CRITICAL RULES:
+- NEVER infer, guess, or add skills/tools/languages that are not directly mentioned in the CV.
+- If a skill or tool is not written in the CV, do NOT include it — even if it seems related or commonly paired with other listed skills.
+- For years_experience: calculate ONLY from actual employment dates listed. If unclear, use 0.
+- For seniority: determine ONLY from job titles explicitly stated. If unclear, use "Mid".
+- For education_level: extract ONLY the degree explicitly mentioned. If none, use null.
+- For languages: list ONLY languages explicitly mentioned. Do NOT assume English or any other language.
+- Return empty arrays rather than guessing. Accuracy is more important than completeness.`,
             },
             {
               role: "user",
-              content: `Parse this CV and extract the candidate's profile:\n\n${atob(fileBase64)}`,
+              content: `Extract ONLY explicitly mentioned information from this CV. Do NOT add anything that is not directly written in the text:\n\n${atob(fileBase64)}`,
             },
           ],
           tools: [

@@ -4,6 +4,7 @@ import { FilterSidebar, defaultFilters } from "@/components/FilterSidebar";
 import { ResultsTable } from "@/components/ResultsTable";
 import { CVUpload } from "@/components/CVUpload";
 import { ExportPanel } from "@/components/ExportPanel";
+import { UserMenu } from "@/components/UserMenu";
 import { SearchFilters, CandidateProfile, Job } from "@/types/job";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -88,6 +89,7 @@ const Index = () => {
             </div>
             <div className="h-6 w-px bg-border" />
             <ExportPanel jobs={jobs} />
+            <UserMenu />
           </div>
         </header>
 

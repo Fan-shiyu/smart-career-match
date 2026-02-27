@@ -287,6 +287,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cv_profiles: {
+        Row: {
+          candidate_profile_hash: string | null
+          candidate_profile_json: Json | null
+          file_name: string | null
+          id: string
+          uploaded_at: string
+          user_id: string
+        }
+        Insert: {
+          candidate_profile_hash?: string | null
+          candidate_profile_json?: Json | null
+          file_name?: string | null
+          id?: string
+          uploaded_at?: string
+          user_id: string
+        }
+        Update: {
+          candidate_profile_hash?: string | null
+          candidate_profile_json?: Json | null
+          file_name?: string | null
+          id?: string
+          uploaded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ind_sponsors: {
         Row: {
           company_name: string
@@ -308,6 +335,129 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          last_login_at: string | null
+          plan: Database["public"]["Enums"]["user_plan"]
+          plan_status: Database["public"]["Enums"]["plan_status"]
+          stripe_customer_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_login_at?: string | null
+          plan?: Database["public"]["Enums"]["user_plan"]
+          plan_status?: Database["public"]["Enums"]["plan_status"]
+          stripe_customer_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_login_at?: string | null
+          plan?: Database["public"]["Enums"]["user_plan"]
+          plan_status?: Database["public"]["Enums"]["plan_status"]
+          stripe_customer_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saved_searches: {
+        Row: {
+          created_at: string
+          filters_json: Json
+          id: string
+          last_run_at: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          filters_json: Json
+          id?: string
+          last_run_at?: string | null
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          filters_json?: Json
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_events: {
+        Row: {
+          created_at: string
+          event_count: number
+          event_type: Database["public"]["Enums"]["usage_event_type"]
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_count?: number
+          event_type: Database["public"]["Enums"]["usage_event_type"]
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_count?: number
+          event_type?: Database["public"]["Enums"]["usage_event_type"]
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          default_city: string | null
+          default_commute_mode: string | null
+          default_commute_origin: string | null
+          default_country: string | null
+          default_language_preferences: string[] | null
+          default_radius_km: number | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_city?: string | null
+          default_commute_mode?: string | null
+          default_commute_origin?: string | null
+          default_country?: string | null
+          default_language_preferences?: string[] | null
+          default_radius_km?: number | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_city?: string | null
+          default_commute_mode?: string | null
+          default_commute_origin?: string | null
+          default_country?: string | null
+          default_language_preferences?: string[] | null
+          default_radius_km?: number | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -316,7 +466,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      plan_status: "active" | "canceled" | "past_due"
+      usage_event_type:
+        | "search"
+        | "export"
+        | "cv_upload"
+        | "commute_calc"
+        | "ai_rewrite"
+      user_plan: "free" | "pro" | "premium"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -443,6 +600,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      plan_status: ["active", "canceled", "past_due"],
+      usage_event_type: [
+        "search",
+        "export",
+        "cv_upload",
+        "commute_calc",
+        "ai_rewrite",
+      ],
+      user_plan: ["free", "pro", "premium"],
+    },
   },
 } as const

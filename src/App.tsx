@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import Account from "./pages/Account";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

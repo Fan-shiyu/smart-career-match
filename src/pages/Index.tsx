@@ -5,17 +5,31 @@ import { ResultsTable } from "@/components/ResultsTable";
 import { CVUpload } from "@/components/CVUpload";
 import { ExportPanel } from "@/components/ExportPanel";
 import { UserMenu } from "@/components/UserMenu";
+import { UsageMeter } from "@/components/UsageMeter";
+import { PaywallModal } from "@/components/PaywallModal";
+import { UsageProvider, useUsage } from "@/hooks/useUsage";
 import { SearchFilters, CandidateProfile, Job } from "@/types/job";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-const Index = () => {
+function AppContent() {
   const [filters, setFilters] = useState<SearchFilters>(defaultFilters);
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallFeature, setPaywallFeature] = useState("");
+  const [paywallUsage, setPaywallUsage] = useState("");
+  const { canSearch, trackEvent, usage, limits } = useUsage();
 
   const handleSearch = async () => {
+    if (!canSearch()) {
+      setPaywallFeature("Unlimited searches");
+      setPaywallUsage(`You've used ${usage.searchesToday}/${limits.searchesPerDay} searches today`);
+      setPaywallOpen(true);
+      return;
+    }
+
     setIsSearching(true);
     try {
       const { data, error } = await supabase.functions.invoke("search-jobs", {
@@ -30,7 +44,7 @@ const Index = () => {
           matchThreshold: filters.matchThreshold,
           strictMode: filters.strictMode,
           indSponsorOnly: filters.indSponsorOnly,
-          topN: filters.topN,
+          topN: Math.min(filters.topN, limits.maxResults),
           candidateProfile: profile || undefined,
         },
       });
@@ -38,10 +52,13 @@ const Index = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      setJobs(data.jobs || []);
+      await trackEvent("search");
+
+      const results = (data.jobs || []).slice(0, limits.maxResults);
+      setJobs(results);
       toast({
         title: "Search Complete",
-        description: `Found ${data.jobs?.length || 0} jobs`,
+        description: `Found ${results.length} jobs${limits.plan === "free" ? " (Free plan: top 10)" : ""}`,
       });
     } catch (e) {
       console.error("Search error:", e);
@@ -84,6 +101,8 @@ const Index = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <UsageMeter />
+            <div className="h-6 w-px bg-border" />
             <div className="w-56">
               <CVUpload profile={profile} onProfileChange={setProfile} />
             </div>
@@ -96,8 +115,21 @@ const Index = () => {
         {/* Results */}
         <ResultsTable jobs={jobs} />
       </div>
+
+      <PaywallModal
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        feature={paywallFeature}
+        currentUsage={paywallUsage}
+      />
     </div>
   );
-};
+}
+
+const Index = () => (
+  <UsageProvider>
+    <AppContent />
+  </UsageProvider>
+);
 
 export default Index;

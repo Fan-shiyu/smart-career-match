@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
-import { Upload, FileText, X, CheckCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Upload, FileText, X, CheckCircle, Loader2 } from "lucide-react";
 import { CandidateProfile } from "@/types/job";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface CVUploadProps {
   profile: CandidateProfile | null;
@@ -12,20 +13,55 @@ interface CVUploadProps {
 export function CVUpload({ profile, onProfileChange }: CVUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setFileName(file.name);
-    // Mock extraction — in production this calls the AI extraction edge function
-    const mockProfile: CandidateProfile = {
-      hard_skills: ["React", "TypeScript", "Python", "SQL", "Node.js", "PostgreSQL", "REST APIs"],
-      software_tools: ["Docker", "Git", "VS Code", "Figma", "Jira"],
-      years_experience: 4,
-      education_level: "Bachelor's",
-      languages: ["English", "Dutch"],
-      seniority: "Mid",
-    };
-    setTimeout(() => onProfileChange(mockProfile), 800);
+    setIsProcessing(true);
+
+    try {
+      // Read file as text (for PDF we send base64)
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const fileBase64 = btoa(binary);
+
+      const { data, error } = await supabase.functions.invoke("extract-cv", {
+        body: { fileBase64, fileName: file.name },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const p = data.profile;
+      onProfileChange({
+        hard_skills: p.hard_skills || [],
+        software_tools: p.software_tools || [],
+        years_experience: p.years_experience || 0,
+        education_level: p.education_level || "",
+        languages: p.languages || [],
+        seniority: p.seniority || "Mid",
+      });
+
+      toast({
+        title: "CV Processed",
+        description: `Extracted ${p.hard_skills?.length || 0} skills from your CV`,
+      });
+    } catch (e) {
+      console.error("CV extraction error:", e);
+      toast({
+        title: "CV Processing Failed",
+        description: e instanceof Error ? e.message : "Could not process your CV",
+        variant: "destructive",
+      });
+      setFileName(null);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -34,6 +70,17 @@ export function CVUpload({ profile, onProfileChange }: CVUploadProps) {
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   };
+
+  if (isProcessing) {
+    return (
+      <div className="border border-border rounded-lg bg-card p-3">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+          <span className="text-xs text-muted-foreground">Analyzing {fileName}...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (profile) {
     return (
@@ -76,10 +123,10 @@ export function CVUpload({ profile, onProfileChange }: CVUploadProps) {
         isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
       )}
     >
-      <input ref={fileRef} type="file" accept=".pdf,.docx" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
+      <input ref={fileRef} type="file" accept=".pdf,.docx,.txt" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
       <Upload className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
       <p className="text-xs text-muted-foreground">Drop CV here or click to upload</p>
-      <p className="text-xs text-muted-foreground/60 mt-0.5">PDF or DOCX</p>
+      <p className="text-xs text-muted-foreground/60 mt-0.5">PDF, DOCX, or TXT</p>
     </div>
   );
 }

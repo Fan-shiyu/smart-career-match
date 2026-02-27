@@ -24,9 +24,40 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY not configured");
 
-    const cvText = atob(fileBase64);
+    // Decode base64 to raw bytes for PDF support
+    const binaryData = Uint8Array.from(atob(fileBase64), c => c.charCodeAt(0));
+    
+    // Determine MIME type
+    const isPdf = fileName?.toLowerCase().endsWith(".pdf") || 
+      (binaryData[0] === 0x25 && binaryData[1] === 0x50); // %P magic bytes
+    const mimeType = isPdf ? "application/pdf" : "text/plain";
 
-    // Call Gemini API directly with function calling
+    // Build request parts - use inline_data for PDFs, text for plain text
+    const contentParts: any[] = [];
+    if (isPdf) {
+      contentParts.push({
+        inlineData: { mimeType, data: fileBase64 },
+      });
+    } else {
+      contentParts.push({ text: new TextDecoder().decode(binaryData) });
+    }
+    contentParts.push({
+      text: `You are a thorough CV/resume parser. Your goal is to extract as much relevant information as possible from this CV.
+
+EXTRACTION GUIDELINES:
+- Extract ALL technical skills, programming languages, frameworks, and methodologies mentioned anywhere in the CV — in job descriptions, project sections, skills sections, summaries, or education.
+- Extract ALL software tools and platforms mentioned (e.g. Docker, AWS, Jira, Figma, Slack, Git, VS Code, etc.).
+- For years_experience: calculate from employment dates if available. If the CV states "X years of experience", use that number. If unclear, estimate from the earliest job date to now.
+- For seniority: determine from the most recent/senior job title. Use "Junior" for entry-level, "Mid" for standard roles, "Senior" for senior titles, "Lead" for lead/principal, "Manager" for management.
+- For education_level: extract the highest degree mentioned (e.g. "Bachelor's", "Master's", "PhD", "High School"). If certifications are listed but no degree, return "Certification".
+- For languages: extract all spoken/written languages mentioned. If the CV is written in English, include "English". If other language sections or proficiency levels are listed, include those languages.
+- Include skills that are clearly implied by job context (e.g. if someone was a "React Developer", include "React" and "JavaScript").
+- Be thorough — it's better to include a skill that was mentioned than to miss it.
+
+Parse this CV and extract a complete profile:`,
+    });
+
+    // Call Gemini API with function calling
     const aiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -36,20 +67,7 @@ serve(async (req) => {
           contents: [
             {
               role: "user",
-              parts: [
-                {
-                  text: `You are a strict CV/resume parser. Extract ONLY information that is EXPLICITLY stated in the CV text.
-
-CRITICAL RULES:
-- NEVER infer, guess, or add skills/tools/languages that are not directly mentioned in the CV.
-- If a skill or tool is not written in the CV, do NOT include it — even if it seems related or commonly paired with other listed skills.
-- For years_experience: calculate ONLY from actual employment dates listed. If unclear, use 0.
-- For seniority: determine ONLY from job titles explicitly stated. If unclear, use "Mid".
-- For education_level: extract ONLY the degree explicitly mentioned. If none, use null.
-- For languages: list ONLY languages explicitly mentioned. Do NOT assume English or any other language.
-- Return empty arrays rather than guessing. Accuracy is more important than completeness.
-
-Extract ONLY explicitly mentioned information from this CV:\n\n${cvText}`,
+              parts: contentParts,
                 },
               ],
             },
@@ -104,7 +122,7 @@ Extract ONLY explicitly mentioned information from this CV:\n\n${cvText}`,
             },
           },
           generationConfig: {
-            temperature: 0,
+            temperature: 0.2,
           },
         }),
       }

@@ -21,6 +21,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: "date_posted", label: "Date Posted", category: "Identifiers", getValue: (j) => j.date_posted },
   { key: "date_scraped", label: "Date Scraped", category: "Identifiers", getValue: (j) => str(j.date_scraped) },
   { key: "job_status", label: "Status", category: "Identifiers", getValue: (j) => str(j.job_status) },
+  { key: "data_source_type", label: "Data Source", category: "Identifiers", getValue: (j) => str(j.data_source_type || "aggregator") },
 
   // B) Job Basics
   { key: "job_title", label: "Title", category: "Job Basics", getValue: (j) => j.job_title },
@@ -119,7 +120,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
 export const TABLE_PRESETS: Record<string, string[]> = {
   quick: [
     "match_score_overall", "job_title", "company_name", "city", "work_mode",
-    "salary_display", "visa_likelihood", "date_posted", "apply_url",
+    "salary_display", "visa_likelihood", "data_source_type", "date_posted", "apply_url",
   ],
   detailed: [
     "match_score_overall", "job_title", "company_name", "city", "work_mode",

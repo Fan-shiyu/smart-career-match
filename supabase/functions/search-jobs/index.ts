@@ -352,8 +352,8 @@ serve(async (req) => {
 
   try {
     const params: SearchParams = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -404,75 +404,85 @@ serve(async (req) => {
     let enrichedMap: Record<string, any> = {};
     let enrichmentStatus = "success";
     try {
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          temperature: 0,
-          messages: [
-            {
-              role: "system",
-              content: "You are a job listing analyzer. Extract structured data ONLY from what is explicitly stated in the job description. Do NOT infer, guess, or fabricate any information. If a field is not mentioned, use null or empty arrays. Be strictly accurate.",
-            },
-            {
-              role: "user",
-              content: `Analyze these ${jobsToEnrich.length} jobs and extract ONLY explicitly mentioned information:\n\n${jobSummaries.join("\n---\n")}`,
-            },
-          ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "enrich_jobs",
-              description: "Return enriched data for all job listings",
-              parameters: {
-                type: "object",
-                properties: {
-                  jobs: {
-                    type: "array",
-                    items: {
-                      type: "object",
+      const aiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `You are a job listing analyzer. Extract structured data ONLY from what is explicitly stated in the job description. Do NOT infer, guess, or fabricate any information. If a field is not mentioned, use null or empty arrays. Be strictly accurate.\n\nAnalyze these ${jobsToEnrich.length} jobs and extract ONLY explicitly mentioned information:\n\n${jobSummaries.join("\n---\n")}`,
+                  },
+                ],
+              },
+            ],
+            tools: [
+              {
+                functionDeclarations: [
+                  {
+                    name: "enrich_jobs",
+                    description: "Return enriched data extracted only from job descriptions",
+                    parameters: {
+                      type: "OBJECT",
                       properties: {
-                        job_id: { type: "string" },
-                        hard_skills: { type: "array", items: { type: "string" } },
-                        software_tools: { type: "array", items: { type: "string" } },
-                        soft_skills: { type: "array", items: { type: "string" } },
-                        years_experience_min: { type: "integer", nullable: true },
-                        education_level: { type: "string", nullable: true },
-                        required_languages: { type: "array", items: { type: "string" } },
-                        seniority_level: { type: "string", nullable: true, enum: ["Junior", "Mid", "Senior", "Lead", "Manager"] },
-                        work_mode: { type: "string", nullable: true, enum: ["On-site", "Hybrid", "Remote"] },
-                        visa_sponsorship_mentioned: { type: "string", enum: ["yes", "no", "unclear"] },
+                        jobs: {
+                          type: "ARRAY",
+                          items: {
+                            type: "OBJECT",
+                            properties: {
+                              job_id: { type: "STRING" },
+                              hard_skills: { type: "ARRAY", items: { type: "STRING" } },
+                              software_tools: { type: "ARRAY", items: { type: "STRING" } },
+                              soft_skills: { type: "ARRAY", items: { type: "STRING" } },
+                              years_experience_min: { type: "INTEGER" },
+                              education_level: { type: "STRING" },
+                              required_languages: { type: "ARRAY", items: { type: "STRING" } },
+                              seniority_level: { type: "STRING" },
+                              work_mode: { type: "STRING" },
+                              visa_sponsorship_mentioned: { type: "STRING" },
+                            },
+                            required: ["job_id"],
+                          },
+                        },
                       },
-                      required: ["job_id"],
-                      additionalProperties: false,
+                      required: ["jobs"],
                     },
                   },
-                },
-                required: ["jobs"],
-                additionalProperties: false,
+                ],
+              },
+            ],
+            toolConfig: {
+              functionCallingConfig: {
+                mode: "ANY",
+                allowedFunctionNames: ["enrich_jobs"],
               },
             },
-          }],
-          tool_choice: { type: "function", function: { name: "enrich_jobs" } },
-        }),
-      });
+            generationConfig: {
+              temperature: 0,
+            },
+          }),
+        }
+      );
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
-        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-        if (toolCall) {
-          const parsed = JSON.parse(toolCall.function.arguments);
+        const functionCall = aiData.candidates?.[0]?.content?.parts?.find(
+          (p: any) => p.functionCall
+        )?.functionCall;
+        if (functionCall) {
+          const parsed = functionCall.args;
           for (const ej of parsed.jobs || []) {
             enrichedMap[ej.job_id] = ej;
           }
         }
       } else {
-        console.error("AI enrichment failed:", aiResponse.status);
-        enrichmentStatus = aiResponse.status === 402 ? "credits_exhausted" : aiResponse.status === 429 ? "rate_limited" : "failed";
+        const errText = await aiResponse.text();
+        console.error("Gemini enrichment failed:", aiResponse.status, errText);
+        enrichmentStatus = aiResponse.status === 429 ? "rate_limited" : "failed";
       }
     } catch (e) {
       console.error("AI enrichment error:", e);

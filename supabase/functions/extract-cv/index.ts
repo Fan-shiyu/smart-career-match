@@ -21,25 +21,24 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GOOGLE_GEMINI_API_KEY not configured");
 
-    // Send file content to AI for extraction
+    const cvText = atob(fileBase64);
+
+    // Call Gemini API directly with function calling
     const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          temperature: 0,
-          messages: [
+          contents: [
             {
-              role: "system",
-              content: `You are a strict CV/resume parser. Your job is to extract ONLY information that is EXPLICITLY stated in the CV text. 
+              role: "user",
+              parts: [
+                {
+                  text: `You are a strict CV/resume parser. Extract ONLY information that is EXPLICITLY stated in the CV text.
 
 CRITICAL RULES:
 - NEVER infer, guess, or add skills/tools/languages that are not directly mentioned in the CV.
@@ -48,71 +47,64 @@ CRITICAL RULES:
 - For seniority: determine ONLY from job titles explicitly stated. If unclear, use "Mid".
 - For education_level: extract ONLY the degree explicitly mentioned. If none, use null.
 - For languages: list ONLY languages explicitly mentioned. Do NOT assume English or any other language.
-- Return empty arrays rather than guessing. Accuracy is more important than completeness.`,
-            },
-            {
-              role: "user",
-              content: `Extract ONLY explicitly mentioned information from this CV. Do NOT add anything that is not directly written in the text:\n\n${atob(fileBase64)}`,
+- Return empty arrays rather than guessing. Accuracy is more important than completeness.
+
+Extract ONLY explicitly mentioned information from this CV:\n\n${cvText}`,
+                },
+              ],
             },
           ],
           tools: [
             {
-              type: "function",
-              function: {
-                name: "extract_profile",
-                description:
-                  "Extract structured candidate profile from a CV",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    hard_skills: {
-                      type: "array",
-                      items: { type: "string" },
-                      description:
-                        "Technical/hard skills (e.g. React, Python, SQL)",
+              functionDeclarations: [
+                {
+                  name: "extract_profile",
+                  description: "Extract structured candidate profile from a CV. Only include explicitly mentioned information.",
+                  parameters: {
+                    type: "OBJECT",
+                    properties: {
+                      hard_skills: {
+                        type: "ARRAY",
+                        items: { type: "STRING" },
+                        description: "Technical/hard skills explicitly mentioned (e.g. React, Python, SQL)",
+                      },
+                      software_tools: {
+                        type: "ARRAY",
+                        items: { type: "STRING" },
+                        description: "Software tools and platforms explicitly mentioned (e.g. Docker, AWS, Jira)",
+                      },
+                      years_experience: {
+                        type: "INTEGER",
+                        description: "Total years of professional experience calculated from employment dates",
+                      },
+                      education_level: {
+                        type: "STRING",
+                        description: "Highest education level explicitly mentioned (e.g. Bachelor's, Master's, PhD)",
+                      },
+                      languages: {
+                        type: "ARRAY",
+                        items: { type: "STRING" },
+                        description: "Spoken languages explicitly mentioned",
+                      },
+                      seniority: {
+                        type: "STRING",
+                        description: "Seniority level based on job titles: Junior, Mid, Senior, Lead, or Manager",
+                      },
                     },
-                    software_tools: {
-                      type: "array",
-                      items: { type: "string" },
-                      description:
-                        "Software tools and platforms (e.g. Docker, AWS, Jira)",
-                    },
-                    years_experience: {
-                      type: "integer",
-                      description: "Total years of professional experience",
-                    },
-                    education_level: {
-                      type: "string",
-                      description:
-                        "Highest education level (e.g. Bachelor's, Master's, PhD)",
-                    },
-                    languages: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "Spoken languages",
-                    },
-                    seniority: {
-                      type: "string",
-                      enum: ["Junior", "Mid", "Senior", "Lead", "Manager"],
-                      description: "Estimated seniority level",
-                    },
+                    required: ["hard_skills", "software_tools", "years_experience", "education_level", "languages", "seniority"],
                   },
-                  required: [
-                    "hard_skills",
-                    "software_tools",
-                    "years_experience",
-                    "education_level",
-                    "languages",
-                    "seniority",
-                  ],
-                  additionalProperties: false,
                 },
-              },
+              ],
             },
           ],
-          tool_choice: {
-            type: "function",
-            function: { name: "extract_profile" },
+          toolConfig: {
+            functionCallingConfig: {
+              mode: "ANY",
+              allowedFunctionNames: ["extract_profile"],
+            },
+          },
+          generationConfig: {
+            temperature: 0,
           },
         }),
       }
@@ -120,29 +112,29 @@ CRITICAL RULES:
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
+      console.error("Gemini API error:", aiResponse.status, errText);
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded, please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      throw new Error(`Gemini API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      throw new Error("AI did not return structured profile");
+    console.log("Gemini response structure:", JSON.stringify(aiData).substring(0, 500));
+
+    // Extract function call result from Gemini response
+    const functionCall = aiData.candidates?.[0]?.content?.parts?.find(
+      (p: any) => p.functionCall
+    )?.functionCall;
+
+    if (!functionCall) {
+      throw new Error("Gemini did not return structured profile");
     }
 
-    const profile = JSON.parse(toolCall.function.arguments);
+    const profile = functionCall.args;
 
     // Save to database
     const supabase = createClient(

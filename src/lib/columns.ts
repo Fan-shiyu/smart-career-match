@@ -68,6 +68,8 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: "language_level", label: "Language Level", category: "Language & Visa", getValue: (j) => str(j.language_level) },
   { key: "visa_sponsorship_mentioned", label: "Visa Mentioned", category: "Language & Visa", getValue: (j) => j.visa_sponsorship_mentioned },
   { key: "ind_registered_sponsor", label: "IND Sponsor", category: "Language & Visa", getValue: (j) => bool(j.ind_registered_sponsor) },
+  { key: "ind_match_method", label: "IND Match Method", category: "Language & Visa", getValue: (j) => str(j.ind_match_method) },
+  { key: "ind_matched_name", label: "IND Matched Name", category: "Language & Visa", getValue: (j) => str(j.ind_matched_name) },
   { key: "visa_likelihood", label: "Visa Likelihood", category: "Language & Visa", getValue: (j) => str(j.visa_likelihood) },
   { key: "relocation_support_mentioned", label: "Relocation Support", category: "Language & Visa", getValue: (j) => str(j.relocation_support_mentioned) },
 

@@ -53,9 +53,15 @@ serve(async (req) => {
           .trim();
 
         if (rawName && rawName.length > 1) {
+          const normalized = rawName
+            .toLowerCase()
+            .replace(/\b(b\.?v\.?|n\.?v\.?|ltd\.?|inc\.?|gmbh|ag|s\.?a\.?|plc|llc|co\.?|corp\.?|holding|group|international|netherlands|nederland)\b/gi, "")
+            .replace(/[^\w\s]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
           companies.push({
             company_name: rawName,
-            company_name_normalized: rawName.toLowerCase().trim(),
+            company_name_normalized: normalized || rawName.toLowerCase().trim(),
           });
         }
       }

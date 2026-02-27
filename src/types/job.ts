@@ -61,8 +61,14 @@ export interface Job {
   language_level: string | null;
   visa_sponsorship_mentioned: "yes" | "no" | "unclear";
   ind_registered_sponsor: boolean;
+  ind_match_method: string | null;
+  ind_matched_name: string | null;
   visa_likelihood: "High" | "Medium" | "Low" | null;
   relocation_support_mentioned: string | null;
+
+  // Status fields
+  enrichment_status: string | null;
+  match_status: string | null;
 
   // G) Requirements
   years_experience_min: number | null;

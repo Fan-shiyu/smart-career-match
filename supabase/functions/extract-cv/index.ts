@@ -68,8 +68,6 @@ Parse this CV and extract a complete profile:`,
             {
               role: "user",
               parts: contentParts,
-                },
-              ],
             },
           ],
           tools: [

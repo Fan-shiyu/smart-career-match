@@ -4,7 +4,7 @@ import { FilterSidebar, defaultFilters } from "@/components/FilterSidebar";
 import { ResultsTable } from "@/components/ResultsTable";
 import { CVUpload } from "@/components/CVUpload";
 import { ExportPanel } from "@/components/ExportPanel";
-import { AdminBackfillPanel } from "@/components/AdminBackfillPanel";
+
 import { UserMenu } from "@/components/UserMenu";
 import { UsageMeter } from "@/components/UsageMeter";
 import { PaywallModal } from "@/components/PaywallModal";
@@ -144,12 +144,6 @@ function AppContent() {
         {/* Results - fills remaining height */}
         <ResultsTable jobs={jobs} />
 
-        {/* Admin backfill panel */}
-        {isAdmin && (
-          <div className="absolute bottom-4 right-4 z-20 w-80">
-            <AdminBackfillPanel />
-          </div>
-        )}
       </div>
 
       <PaywallModal open={paywallOpen} onOpenChange={setPaywallOpen} feature={paywallFeature} currentUsage={paywallUsage} />

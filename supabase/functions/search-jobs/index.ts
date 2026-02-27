@@ -672,9 +672,27 @@ serve(async (req) => {
 
     let enrichedMap: Record<string, any> = {};
 
-    // Run IND sponsor lookup and AI enrichment concurrently
+    // Run IND sponsor lookup (paginated to get ALL 12k+ sponsors) and AI enrichment concurrently
+    const fetchAllSponsors = async () => {
+      const allSponsors: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("ind_sponsors")
+          .select("company_name, company_name_normalized")
+          .range(from, from + pageSize - 1);
+        if (error) { console.error("IND fetch error:", error); break; }
+        allSponsors.push(...(data || []));
+        hasMore = (data || []).length === pageSize;
+        from += pageSize;
+      }
+      return allSponsors;
+    };
+    
     const [indResult, aiResult] = await Promise.allSettled([
-      supabase.from("ind_sponsors").select("company_name, company_name_normalized"),
+      fetchAllSponsors(),
       fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
@@ -774,14 +792,14 @@ serve(async (req) => {
     let sponsorRawMap = new Map<string, string>();
     
     if (indResult.status === "fulfilled") {
-      const { data: indSponsors } = indResult.value;
+      const indSponsors = indResult.value;
       for (const s of (indSponsors || [])) {
         const normalized = normalizeCompanyName(s.company_name_normalized || s.company_name);
         sponsorNormalizedSet.add(normalized);
         sponsorNormalizedList.push(normalized);
         sponsorRawMap.set(normalized, s.company_name);
       }
-      console.log(`Loaded ${sponsorNormalizedSet.size} unique normalized IND sponsors`);
+      console.log(`Loaded ${sponsorNormalizedSet.size} unique normalized IND sponsors (from ${indSponsors.length} rows)`);
       
       // QA: Log sample matches for debugging
       const sampleCompanies = ["adyen", "elastic", "catawiki", "shell", "ing", "philips"];

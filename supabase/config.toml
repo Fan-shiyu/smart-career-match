@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.search-jobs]
 verify_jwt = false
+
+[functions.backfill-jobs]
+verify_jwt = false
+
+[functions.sync-ind-sponsors]
+verify_jwt = false

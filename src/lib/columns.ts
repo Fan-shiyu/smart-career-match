@@ -116,6 +116,10 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: "job_description_raw", label: "Job Description", category: "Raw Text", getValue: (j) => j.job_description_raw },
   { key: "requirements_raw", label: "Requirements", category: "Raw Text", getValue: (j) => str(j.requirements_raw) },
   { key: "company_description_raw", label: "Company Description", category: "Raw Text", getValue: (j) => str(j.company_description_raw) },
+
+  // M) Status
+  { key: "enrichment_status", label: "Enrichment Status", category: "Status", getValue: (j) => str(j.enrichment_status) },
+  { key: "match_status", label: "Match Status", category: "Status", getValue: (j) => str(j.match_status) },
 ];
 
 // Table view presets

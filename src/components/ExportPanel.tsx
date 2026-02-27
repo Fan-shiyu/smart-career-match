@@ -19,6 +19,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Benefits": "FF2ECC71",
   "Matching": "FF3498DB",
   "Raw Text": "FF95A5A6",
+  "Status": "FF7F8C8D",
 };
 
 interface ExportPanelProps {

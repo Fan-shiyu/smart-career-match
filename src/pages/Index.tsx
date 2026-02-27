@@ -1,33 +1,56 @@
 import { useState } from "react";
-import { Briefcase, Zap } from "lucide-react";
+import { Briefcase, Zap, Loader2 } from "lucide-react";
 import { FilterSidebar, defaultFilters } from "@/components/FilterSidebar";
 import { ResultsTable } from "@/components/ResultsTable";
 import { CVUpload } from "@/components/CVUpload";
 import { ExportPanel } from "@/components/ExportPanel";
-import { mockJobs } from "@/data/mockJobs";
 import { SearchFilters, CandidateProfile, Job } from "@/types/job";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [filters, setFilters] = useState<SearchFilters>(defaultFilters);
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = () => {
-    // Apply client-side filtering on mock data
-    let filtered = [...mockJobs];
-    if (filters.workMode !== "all") filtered = filtered.filter(j => j.work_mode === filters.workMode);
-    if (filters.employmentType !== "all") filtered = filtered.filter(j => j.employment_type === filters.employmentType);
-    if (filters.seniorityLevel !== "all") filtered = filtered.filter(j => j.seniority_level === filters.seniorityLevel);
-    if (filters.country) filtered = filtered.filter(j => j.country === filters.country);
-    if (filters.minSalary > 0) filtered = filtered.filter(j => j.salary_max != null && j.salary_max >= filters.minSalary);
-    if (filters.indSponsorOnly) filtered = filtered.filter(j => j.ind_registered_sponsor);
-    if (filters.matchThreshold > 0) filtered = filtered.filter(j => j.match_score_overall >= filters.matchThreshold);
-    if (filters.maxCommuteTime < 120) filtered = filtered.filter(j => j.commute_time_min == null || j.commute_time_min <= filters.maxCommuteTime);
-    if (filters.keywords) {
-      const kw = filters.keywords.toLowerCase();
-      filtered = filtered.filter(j => j.job_title.toLowerCase().includes(kw) || j.company_name.toLowerCase().includes(kw));
+  const handleSearch = async () => {
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-jobs", {
+        body: {
+          keywords: filters.keywords,
+          country: filters.country,
+          city: filters.city,
+          workMode: filters.workMode,
+          employmentType: filters.employmentType,
+          minSalary: filters.minSalary,
+          postedWithin: filters.postedWithin,
+          matchThreshold: filters.matchThreshold,
+          strictMode: filters.strictMode,
+          indSponsorOnly: filters.indSponsorOnly,
+          candidateProfile: profile || undefined,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setJobs(data.jobs || []);
+      toast({
+        title: "Search Complete",
+        description: `Found ${data.jobs?.length || 0} jobs`,
+      });
+    } catch (e) {
+      console.error("Search error:", e);
+      toast({
+        title: "Search Failed",
+        description: e instanceof Error ? e.message : "Could not search jobs",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
     }
-    setJobs(filtered);
   };
 
   return (
@@ -49,7 +72,11 @@ const Index = () => {
             </div>
             <div className="h-6 w-px bg-border mx-2" />
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Zap className="h-3.5 w-3.5 text-primary animate-pulse-glow" />
+              {isSearching ? (
+                <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+              ) : (
+                <Zap className="h-3.5 w-3.5 text-primary animate-pulse-glow" />
+              )}
               <span className="font-mono">{jobs.length}</span> results
             </div>
           </div>

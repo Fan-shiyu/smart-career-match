@@ -402,6 +402,7 @@ serve(async (req) => {
     );
 
     let enrichedMap: Record<string, any> = {};
+    let enrichmentStatus = "success";
     try {
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -411,14 +412,15 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
+          temperature: 0,
           messages: [
             {
               role: "system",
-              content: "You are a job listing analyzer. Extract structured data for each job. Be accurate — do not fabricate. If unavailable, use empty arrays or null.",
+              content: "You are a job listing analyzer. Extract structured data ONLY from what is explicitly stated in the job description. Do NOT infer, guess, or fabricate any information. If a field is not mentioned, use null or empty arrays. Be strictly accurate.",
             },
             {
               role: "user",
-              content: `Analyze these ${jobsToEnrich.length} jobs:\n\n${jobSummaries.join("\n---\n")}`,
+              content: `Analyze these ${jobsToEnrich.length} jobs and extract ONLY explicitly mentioned information:\n\n${jobSummaries.join("\n---\n")}`,
             },
           ],
           tools: [{
@@ -470,9 +472,11 @@ serve(async (req) => {
         }
       } else {
         console.error("AI enrichment failed:", aiResponse.status);
+        enrichmentStatus = aiResponse.status === 402 ? "credits_exhausted" : aiResponse.status === 429 ? "rate_limited" : "failed";
       }
     } catch (e) {
       console.error("AI enrichment error:", e);
+      enrichmentStatus = "failed";
     }
 
     // 4. Enrich, match, filter

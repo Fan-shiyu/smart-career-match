@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters } from "@/types/job";
 import { cn } from "@/lib/utils";
@@ -78,34 +79,47 @@ export function FilterSidebar({ filters, onFiltersChange, onSearch }: FilterSide
               <SelectItem value="10">10 km</SelectItem>
               <SelectItem value="25">25 km</SelectItem>
               <SelectItem value="50">50 km</SelectItem>
+              <SelectItem value="75">75 km</SelectItem>
+              <SelectItem value="100">100 km</SelectItem>
             </SelectContent>
           </Select>
         </FilterGroup>
 
         <FilterGroup title="Job Type">
-          <Select value={filters.workMode} onValueChange={(v) => update({ workMode: v })}>
-            <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
-              <SelectValue placeholder="Work mode" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="On-site">On-site</SelectItem>
-              <SelectItem value="Hybrid">Hybrid</SelectItem>
-              <SelectItem value="Remote">Remote</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filters.employmentType} onValueChange={(v) => update({ employmentType: v })}>
-            <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
-              <SelectValue placeholder="Employment type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="Full-time">Full-time</SelectItem>
-              <SelectItem value="Part-time">Part-time</SelectItem>
-              <SelectItem value="Contract">Contract</SelectItem>
-              <SelectItem value="Intern">Intern</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label className="text-xs text-muted-foreground mb-1">Work Mode</Label>
+          <div className="space-y-1.5">
+            {["On-site", "Hybrid", "Remote"].map((mode) => (
+              <div key={mode} className="flex items-center gap-2">
+                <Checkbox
+                  id={`wm-${mode}`}
+                  checked={filters.workModes?.includes(mode) ?? false}
+                  onCheckedChange={(checked) => {
+                    const current = filters.workModes || [];
+                    const next = checked ? [...current, mode] : current.filter((m) => m !== mode);
+                    update({ workModes: next });
+                  }}
+                />
+                <label htmlFor={`wm-${mode}`} className="text-xs text-foreground cursor-pointer">{mode}</label>
+              </div>
+            ))}
+          </div>
+          <Label className="text-xs text-muted-foreground mb-1 mt-2">Employment Type</Label>
+          <div className="space-y-1.5">
+            {["Full-time", "Part-time", "Contract", "Intern"].map((type) => (
+              <div key={type} className="flex items-center gap-2">
+                <Checkbox
+                  id={`et-${type}`}
+                  checked={filters.employmentTypes?.includes(type) ?? false}
+                  onCheckedChange={(checked) => {
+                    const current = filters.employmentTypes || [];
+                    const next = checked ? [...current, type] : current.filter((t) => t !== type);
+                    update({ employmentTypes: next });
+                  }}
+                />
+                <label htmlFor={`et-${type}`} className="text-xs text-foreground cursor-pointer">{type}</label>
+              </div>
+            ))}
+          </div>
           <Select value={filters.postedWithin} onValueChange={(v) => update({ postedWithin: v })}>
             <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
               <SelectValue placeholder="Posted within" />
@@ -127,19 +141,23 @@ export function FilterSidebar({ filters, onFiltersChange, onSearch }: FilterSide
             </div>
             <Slider value={[filters.yearsExperience]} onValueChange={([v]) => update({ yearsExperience: v })} min={0} max={15} step={1} className="py-1" />
           </div>
-          <Select value={filters.seniorityLevel} onValueChange={(v) => update({ seniorityLevel: v })}>
-            <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
-              <SelectValue placeholder="Seniority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All levels</SelectItem>
-              <SelectItem value="Junior">Junior</SelectItem>
-              <SelectItem value="Mid">Mid</SelectItem>
-              <SelectItem value="Senior">Senior</SelectItem>
-              <SelectItem value="Lead">Lead</SelectItem>
-              <SelectItem value="Manager">Manager</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label className="text-xs text-muted-foreground mb-1">Seniority Level</Label>
+          <div className="space-y-1.5">
+            {["Junior", "Mid", "Senior", "Lead", "Manager"].map((level) => (
+              <div key={level} className="flex items-center gap-2">
+                <Checkbox
+                  id={`sl-${level}`}
+                  checked={filters.seniorityLevels?.includes(level) ?? false}
+                  onCheckedChange={(checked) => {
+                    const current = filters.seniorityLevels || [];
+                    const next = checked ? [...current, level] : current.filter((l) => l !== level);
+                    update({ seniorityLevels: next });
+                  }}
+                />
+                <label htmlFor={`sl-${level}`} className="text-xs text-foreground cursor-pointer">{level}</label>
+              </div>
+            ))}
+          </div>
           <Input
             type="number"
             placeholder="Min salary (€)"
@@ -214,11 +232,11 @@ export const defaultFilters: SearchFilters = {
   country: "Netherlands",
   city: "",
   radius: 25,
-  workMode: "all",
-  employmentType: "all",
+  workModes: [],
+  employmentTypes: [],
   postedWithin: "all",
   yearsExperience: 0,
-  seniorityLevel: "all",
+  seniorityLevels: [],
   languages: [],
   visaRequired: false,
   indSponsorOnly: false,

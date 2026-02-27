@@ -56,11 +56,11 @@ export interface SearchFilters {
   country: string;
   city: string;
   radius: number;
-  workMode: string;
-  employmentType: string;
+  workModes: string[];
+  employmentTypes: string[];
   postedWithin: string;
   yearsExperience: number;
-  seniorityLevel: string;
+  seniorityLevels: string[];
   languages: string[];
   visaRequired: boolean;
   indSponsorOnly: boolean;

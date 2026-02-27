@@ -46,6 +46,7 @@ function AppContent() {
           indSponsorOnly: filters.indSponsorOnly,
           topN: Math.min(filters.topN, limits.maxResults),
           candidateProfile: profile || undefined,
+          dataSourceFilter: filters.dataSourceFilter,
         },
       });
 

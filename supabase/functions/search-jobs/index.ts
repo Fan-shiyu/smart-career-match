@@ -46,6 +46,7 @@ interface SearchParams {
   strictMode: boolean;
   indSponsorOnly: boolean;
   topN: number;
+  dataSourceFilter?: "all" | "aggregator" | "company_direct";
 }
 
 function normalizeCompanyName(name: string): string {
@@ -451,6 +452,43 @@ function enrichAndMatch(
   });
 }
 
+// ── Fetch pre-ingested company_direct jobs from DB ──
+async function fetchCompanyDirectJobs(supabase: any, params: SearchParams): Promise<any[]> {
+  try {
+    let query = supabase
+      .from("company_jobs")
+      .select("*")
+      .eq("is_active", true)
+      .limit(200);
+
+    if (params.keywords) {
+      query = query.ilike("job_title", `%${params.keywords}%`);
+    }
+    if (params.city) {
+      query = query.ilike("city", `%${params.city}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) { console.error("company_jobs fetch error:", error); return []; }
+
+    return (data || []).map((j: any) => ({
+      job_id: j.job_id,
+      source: "company_direct",
+      source_job_id: j.source_job_id,
+      job_url: j.job_url,
+      apply_url: j.apply_url,
+      date_posted: j.date_posted,
+      job_title: j.job_title,
+      country: j.country || "Netherlands",
+      city: j.city,
+      company_name: j.company_name || "Unknown",
+      company_name_normalized: j.company_name_normalized,
+      job_description_raw: j.job_description_raw || "",
+      data_source_type: "company_direct",
+    }));
+  } catch (e) { console.error("company_direct fetch error:", e); return []; }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -466,23 +504,36 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Fetch from ALL sources in parallel
+    // 1. Fetch from ALL sources in parallel (including pre-ingested company_direct jobs)
     console.log("Fetching from all sources in parallel...");
-    const [adzunaJobs, arbeitnowJobs, greenhouseJobs, leverJobs, smartrecruitersJobs] =
+    const [adzunaJobs, arbeitnowJobs, greenhouseJobs, leverJobs, smartrecruitersJobs, companyDirectJobs] =
       await Promise.all([
         fetchAdzuna(params),
         fetchArbeitnow(params),
         fetchGreenhouse(params),
         fetchLever(params),
         fetchSmartRecruiters(params),
+        fetchCompanyDirectJobs(supabase, params),
       ]);
 
-    console.log(`Results: Adzuna=${adzunaJobs.length}, Arbeitnow=${arbeitnowJobs.length}, Greenhouse=${greenhouseJobs.length}, Lever=${leverJobs.length}, SmartRecruiters=${smartrecruitersJobs.length}`);
+    console.log(`Results: Adzuna=${adzunaJobs.length}, Arbeitnow=${arbeitnowJobs.length}, Greenhouse=${greenhouseJobs.length}, Lever=${leverJobs.length}, SmartRecruiters=${smartrecruitersJobs.length}, CompanyDirect=${companyDirectJobs.length}`);
+
+    // Apply data source filter
+    const sourceFilter = params.dataSourceFilter || "all";
+    let aggregatorJobs: any[] = [];
+    let directJobs: any[] = [];
+    
+    if (sourceFilter !== "company_direct") {
+      aggregatorJobs = [...adzunaJobs, ...arbeitnowJobs, ...greenhouseJobs, ...leverJobs, ...smartrecruitersJobs];
+    }
+    if (sourceFilter !== "aggregator") {
+      directJobs = companyDirectJobs;
+    }
 
     // Merge and deduplicate
     const seen = new Set<string>();
     const allJobs: any[] = [];
-    for (const job of [...adzunaJobs, ...arbeitnowJobs, ...greenhouseJobs, ...leverJobs, ...smartrecruitersJobs]) {
+    for (const job of [...aggregatorJobs, ...directJobs]) {
       const key = `${(job.company_name || "").toLowerCase()}_${(job.job_title || "").toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -491,7 +542,7 @@ serve(async (req) => {
     }
 
     if (allJobs.length === 0) {
-      return new Response(JSON.stringify({ jobs: [], sources: { adzuna: 0, arbeitnow: 0, greenhouse: 0, lever: 0, smartrecruiters: 0 } }), {
+      return new Response(JSON.stringify({ jobs: [], sources: { adzuna: 0, arbeitnow: 0, greenhouse: 0, lever: 0, smartrecruiters: 0, company_direct: 0 } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -671,6 +722,7 @@ serve(async (req) => {
         greenhouse: greenhouseJobs.length,
         lever: leverJobs.length,
         smartrecruiters: smartrecruitersJobs.length,
+        company_direct: companyDirectJobs.length,
       },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

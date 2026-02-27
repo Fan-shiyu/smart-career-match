@@ -7,22 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const COUNTRY_MAP: Record<string, string> = {
-  Netherlands: "nl",
-  Germany: "de",
-  Belgium: "be",
-  "United Kingdom": "gb",
-};
+// Major NL tech companies on Greenhouse/Lever
+const GREENHOUSE_BOARDS = [
+  "booking", "adyen", "elastic", "messagebird", "mollie",
+  "takeaway", "picnic", "bunq", "coolblue", "rituals",
+];
+const LEVER_BOARDS = [
+  "trivago", "gorillas", "hellofresh", "miro",
+];
 
 interface SearchParams {
   keywords: string;
   country: string;
   city: string;
-  workMode: string;
-  employmentType: string;
+  workModes: string[];
+  employmentTypes: string[];
   minSalary: number;
   postedWithin: string;
-  // Candidate profile for matching
   candidateProfile?: {
     hard_skills: string[];
     software_tools: string[];
@@ -36,78 +37,30 @@ interface SearchParams {
   indSponsorOnly: boolean;
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+// ── Adzuna fetcher ──
+async function fetchAdzuna(params: SearchParams): Promise<any[]> {
+  const ADZUNA_APP_ID = Deno.env.get("ADZUNA_APP_ID");
+  const ADZUNA_APP_KEY = Deno.env.get("ADZUNA_APP_KEY");
+  if (!ADZUNA_APP_ID || !ADZUNA_APP_KEY) return [];
 
+  const url = new URL("https://api.adzuna.com/v1/api/jobs/nl/search/1");
+  url.searchParams.set("app_id", ADZUNA_APP_ID);
+  url.searchParams.set("app_key", ADZUNA_APP_KEY);
+  url.searchParams.set("results_per_page", "50");
+  url.searchParams.set("content-type", "application/json");
+  if (params.keywords) url.searchParams.set("what", params.keywords);
+  if (params.city) url.searchParams.set("where", params.city);
+  if (params.minSalary > 0) url.searchParams.set("salary_min", String(params.minSalary));
+  if (params.postedWithin === "24h") url.searchParams.set("max_days_old", "1");
+  else if (params.postedWithin === "7d") url.searchParams.set("max_days_old", "7");
+  else if (params.postedWithin === "30d") url.searchParams.set("max_days_old", "30");
+
+  console.log("Fetching Adzuna...");
   try {
-    const params: SearchParams = await req.json();
-    const ADZUNA_APP_ID = Deno.env.get("ADZUNA_APP_ID");
-    const ADZUNA_APP_KEY = Deno.env.get("ADZUNA_APP_KEY");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!ADZUNA_APP_ID || !ADZUNA_APP_KEY) {
-      throw new Error("Adzuna API credentials not configured");
-    }
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // 1. Fetch jobs from Adzuna
-    const countryCode = COUNTRY_MAP[params.country] || "nl";
-    const adzunaUrl = new URL(
-      `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/1`
-    );
-    adzunaUrl.searchParams.set("app_id", ADZUNA_APP_ID);
-    adzunaUrl.searchParams.set("app_key", ADZUNA_APP_KEY);
-    adzunaUrl.searchParams.set("results_per_page", "30");
-    adzunaUrl.searchParams.set("content-type", "application/json");
-
-    if (params.keywords) adzunaUrl.searchParams.set("what", params.keywords);
-    if (params.city) adzunaUrl.searchParams.set("where", params.city);
-    if (params.minSalary > 0)
-      adzunaUrl.searchParams.set("salary_min", String(params.minSalary));
-
-    // Employment type mapping
-    if (params.employmentType === "Full-time")
-      adzunaUrl.searchParams.set("full_time", "1");
-    else if (params.employmentType === "Part-time")
-      adzunaUrl.searchParams.set("part_time", "1");
-    else if (params.employmentType === "Contract")
-      adzunaUrl.searchParams.set("contract", "1");
-
-    // Posted within
-    if (params.postedWithin === "24h")
-      adzunaUrl.searchParams.set("max_days_old", "1");
-    else if (params.postedWithin === "7d")
-      adzunaUrl.searchParams.set("max_days_old", "7");
-    else if (params.postedWithin === "30d")
-      adzunaUrl.searchParams.set("max_days_old", "30");
-
-    console.log("Fetching from Adzuna:", adzunaUrl.toString());
-
-    const adzunaResp = await fetch(adzunaUrl.toString());
-    if (!adzunaResp.ok) {
-      const errText = await adzunaResp.text();
-      console.error("Adzuna error:", adzunaResp.status, errText);
-      throw new Error(`Adzuna API error: ${adzunaResp.status}`);
-    }
-
-    const adzunaData = await adzunaResp.json();
-    const rawJobs = adzunaData.results || [];
-
-    if (rawJobs.length === 0) {
-      return new Response(JSON.stringify({ jobs: [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2. Normalize Adzuna jobs
-    const normalizedJobs = rawJobs.map((j: any) => ({
+    const resp = await fetch(url.toString());
+    if (!resp.ok) { console.error("Adzuna error:", resp.status); return []; }
+    const data = await resp.json();
+    return (data.results || []).map((j: any) => ({
       job_id: `adz-${j.id}`,
       source: "adzuna",
       job_url: j.redirect_url || "",
@@ -115,10 +68,10 @@ serve(async (req) => {
       date_posted: j.created?.split("T")[0] || "",
       job_title: j.title?.replace(/<[^>]*>/g, "") || "Unknown",
       seniority_level: null,
-      employment_type: params.employmentType !== "all" ? params.employmentType : null,
+      employment_type: null,
       work_mode: null,
-      country: params.country,
-      city: j.location?.display_name?.split(",")[0]?.trim() || params.city || null,
+      country: "Netherlands",
+      city: j.location?.display_name?.split(",")[0]?.trim() || null,
       company_name: j.company?.display_name || "Unknown",
       industry: j.category?.label || null,
       salary_min: j.salary_min ? Math.round(j.salary_min) : null,
@@ -126,25 +79,331 @@ serve(async (req) => {
       salary_currency: "EUR",
       job_description_raw: j.description?.replace(/<[^>]*>/g, "") || "",
     }));
+  } catch (e) { console.error("Adzuna fetch error:", e); return []; }
+}
 
-    // 3. Load IND sponsors for visa check
+// ── Arbeitnow fetcher (free, no key) ──
+async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
+  const url = new URL("https://www.arbeitnow.com/api/job-board-api");
+  // Arbeitnow doesn't support keyword search via params well, but we can filter client-side
+  console.log("Fetching Arbeitnow...");
+  try {
+    const resp = await fetch(url.toString());
+    if (!resp.ok) { console.error("Arbeitnow error:", resp.status); return []; }
+    const data = await resp.json();
+    const kw = (params.keywords || "").toLowerCase();
+    let jobs = data.data || [];
+    // Filter for Netherlands
+    jobs = jobs.filter((j: any) => {
+      const loc = (j.location || "").toLowerCase();
+      return loc.includes("netherlands") || loc.includes("nederland") ||
+        loc.includes("amsterdam") || loc.includes("rotterdam") ||
+        loc.includes("den haag") || loc.includes("the hague") ||
+        loc.includes("utrecht") || loc.includes("eindhoven") ||
+        loc.includes("tilburg") || loc.includes("groningen") ||
+        loc.includes("leiden") || loc.includes("delft") ||
+        loc.includes("breda") || loc.includes("arnhem") ||
+        loc.includes("maastricht") || loc.includes("haarlem") ||
+        loc.includes("almere") || loc.includes("nijmegen");
+    });
+    // Filter by keyword if provided
+    if (kw) {
+      jobs = jobs.filter((j: any) =>
+        (j.title || "").toLowerCase().includes(kw) ||
+        (j.description || "").toLowerCase().includes(kw) ||
+        (j.company_name || "").toLowerCase().includes(kw) ||
+        (j.tags || []).some((t: string) => t.toLowerCase().includes(kw))
+      );
+    }
+    return jobs.slice(0, 30).map((j: any) => ({
+      job_id: `arb-${j.slug || j.url?.split("/").pop() || Math.random().toString(36).slice(2)}`,
+      source: "arbeitnow",
+      job_url: j.url || "",
+      apply_url: j.url || "",
+      date_posted: j.created_at ? new Date(j.created_at * 1000).toISOString().split("T")[0] : "",
+      job_title: j.title || "Unknown",
+      seniority_level: null,
+      employment_type: j.job_types?.includes("full_time") ? "Full-time" : j.job_types?.includes("part_time") ? "Part-time" : null,
+      work_mode: j.remote ? "Remote" : null,
+      country: "Netherlands",
+      city: (j.location || "").split(",")[0]?.trim() || null,
+      company_name: j.company_name || "Unknown",
+      industry: null,
+      salary_min: null,
+      salary_max: null,
+      salary_currency: "EUR",
+      job_description_raw: (j.description || "").replace(/<[^>]*>/g, "").substring(0, 1000),
+    }));
+  } catch (e) { console.error("Arbeitnow fetch error:", e); return []; }
+}
+
+// ── Greenhouse fetcher ──
+async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
+  const kw = (params.keywords || "").toLowerCase();
+  const allJobs: any[] = [];
+
+  const fetchBoard = async (board: string) => {
+    try {
+      const resp = await fetch(`https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`);
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return (data.jobs || [])
+        .filter((j: any) => {
+          const loc = (j.location?.name || "").toLowerCase();
+          const isNL = loc.includes("netherlands") || loc.includes("amsterdam") ||
+            loc.includes("rotterdam") || loc.includes("utrecht") ||
+            loc.includes("den haag") || loc.includes("the hague") ||
+            loc.includes("eindhoven") || loc.includes("tilburg");
+          if (!isNL) return false;
+          if (kw) {
+            return (j.title || "").toLowerCase().includes(kw) ||
+              (j.content || "").toLowerCase().includes(kw);
+          }
+          return true;
+        })
+        .slice(0, 10)
+        .map((j: any) => ({
+          job_id: `gh-${j.id}`,
+          source: "greenhouse",
+          job_url: j.absolute_url || "",
+          apply_url: j.absolute_url || "",
+          date_posted: j.updated_at?.split("T")[0] || "",
+          job_title: j.title || "Unknown",
+          seniority_level: null,
+          employment_type: null,
+          work_mode: null,
+          country: "Netherlands",
+          city: (j.location?.name || "").split(",")[0]?.trim() || null,
+          company_name: board.charAt(0).toUpperCase() + board.slice(1),
+          industry: null,
+          salary_min: null,
+          salary_max: null,
+          salary_currency: "EUR",
+          job_description_raw: (j.content || "").replace(/<[^>]*>/g, "").substring(0, 1000),
+        }));
+    } catch { return []; }
+  };
+
+  console.log("Fetching Greenhouse boards...");
+  const results = await Promise.allSettled(GREENHOUSE_BOARDS.map(fetchBoard));
+  for (const r of results) {
+    if (r.status === "fulfilled") allJobs.push(...r.value);
+  }
+  return allJobs;
+}
+
+// ── Lever fetcher ──
+async function fetchLever(params: SearchParams): Promise<any[]> {
+  const kw = (params.keywords || "").toLowerCase();
+  const allJobs: any[] = [];
+
+  const fetchBoard = async (board: string) => {
+    try {
+      const resp = await fetch(`https://api.lever.co/v0/postings/${board}?mode=json`);
+      if (!resp.ok) return [];
+      const jobs = await resp.json();
+      return (jobs || [])
+        .filter((j: any) => {
+          const loc = (j.categories?.location || "").toLowerCase();
+          const isNL = loc.includes("netherlands") || loc.includes("amsterdam") ||
+            loc.includes("rotterdam") || loc.includes("utrecht") ||
+            loc.includes("den haag") || loc.includes("the hague") ||
+            loc.includes("eindhoven");
+          if (!isNL) return false;
+          if (kw) {
+            return (j.text || "").toLowerCase().includes(kw) ||
+              (j.descriptionPlain || "").toLowerCase().includes(kw);
+          }
+          return true;
+        })
+        .slice(0, 10)
+        .map((j: any) => ({
+          job_id: `lv-${j.id}`,
+          source: "lever",
+          job_url: j.hostedUrl || "",
+          apply_url: j.applyUrl || j.hostedUrl || "",
+          date_posted: j.createdAt ? new Date(j.createdAt).toISOString().split("T")[0] : "",
+          job_title: j.text || "Unknown",
+          seniority_level: null,
+          employment_type: j.categories?.commitment || null,
+          work_mode: j.workplaceType === "remote" ? "Remote" : j.workplaceType === "onSite" ? "On-site" : j.workplaceType === "hybrid" ? "Hybrid" : null,
+          country: "Netherlands",
+          city: (j.categories?.location || "").split(",")[0]?.split("-")[0]?.trim() || null,
+          company_name: board.charAt(0).toUpperCase() + board.slice(1),
+          industry: null,
+          salary_min: null,
+          salary_max: null,
+          salary_currency: "EUR",
+          job_description_raw: (j.descriptionPlain || "").substring(0, 1000),
+        }));
+    } catch { return []; }
+  };
+
+  console.log("Fetching Lever boards...");
+  const results = await Promise.allSettled(LEVER_BOARDS.map(fetchBoard));
+  for (const r of results) {
+    if (r.status === "fulfilled") allJobs.push(...r.value);
+  }
+  return allJobs;
+}
+
+// ── Enrichment + Matching ──
+function enrichAndMatch(
+  normalizedJobs: any[],
+  enrichedMap: Record<string, any>,
+  sponsorSet: Set<string>,
+  profile: SearchParams["candidateProfile"],
+  strictMode: boolean,
+) {
+  return normalizedJobs.map((job: any) => {
+    const enriched = enrichedMap[job.job_id] || {};
+    const companyNormalized = job.company_name.toLowerCase().trim();
+    const isIndSponsor = sponsorSet.has(companyNormalized);
+    const visaMentioned = enriched.visa_sponsorship_mentioned || "unclear";
+    const requiredLangs = enriched.required_languages || [];
+    const hasEnglish = requiredLangs.some((l: string) => l.toLowerCase() === "english");
+
+    let visaLikelihood: string | null = null;
+    if (isIndSponsor && (visaMentioned === "yes" || hasEnglish)) visaLikelihood = "High";
+    else if (isIndSponsor) visaLikelihood = "Medium";
+    else if (visaMentioned === "yes") visaLikelihood = "Medium";
+    else visaLikelihood = "Low";
+
+    let matchScore = 0;
+    let matchBreakdown = { hard_skills: 0, tools: 0, seniority: 0, experience: 0, language: 0 };
+    let matchedSkills: string[] = [];
+    let missingSkills: string[] = [];
+
+    const jobSkills = (enriched.hard_skills || []).map((s: string) => s.toLowerCase());
+    const jobTools = (enriched.software_tools || []).map((s: string) => s.toLowerCase());
+
+    if (profile) {
+      const candidateSkills = profile.hard_skills.map((s) => s.toLowerCase());
+      const candidateTools = profile.software_tools.map((s) => s.toLowerCase());
+
+      matchedSkills = jobSkills.filter((s: string) => candidateSkills.includes(s));
+      missingSkills = jobSkills.filter((s: string) => !candidateSkills.includes(s));
+      const skillScore = jobSkills.length > 0 ? (matchedSkills.length / jobSkills.length) * 100 : 50;
+
+      const matchedTools = jobTools.filter((t: string) => candidateTools.includes(t));
+      const toolScore = jobTools.length > 0 ? (matchedTools.length / jobTools.length) * 100 : 50;
+
+      const seniorityLevels = ["junior", "mid", "senior", "lead", "manager"];
+      const jobSenIdx = seniorityLevels.indexOf((enriched.seniority_level || "").toLowerCase());
+      const candSenIdx = seniorityLevels.indexOf(profile.seniority.toLowerCase());
+      const seniorityScore = jobSenIdx >= 0 && candSenIdx >= 0
+        ? Math.max(0, 100 - Math.abs(jobSenIdx - candSenIdx) * 25) : 50;
+
+      const jobExpMin = enriched.years_experience_min || 0;
+      const expDiff = profile.years_experience - jobExpMin;
+      const expScore = expDiff >= 0 ? 100 : Math.max(0, 100 + expDiff * 20);
+
+      const candidateLangs = profile.languages.map((l) => l.toLowerCase());
+      const langMatch = requiredLangs.filter((l: string) => candidateLangs.includes(l.toLowerCase()));
+      const langScore = requiredLangs.length > 0 ? (langMatch.length / requiredLangs.length) * 100 : 100;
+
+      matchBreakdown = {
+        hard_skills: Math.round(skillScore),
+        tools: Math.round(toolScore),
+        seniority: Math.round(seniorityScore),
+        experience: Math.round(expScore),
+        language: Math.round(langScore),
+      };
+
+      matchScore = Math.round(
+        skillScore * 0.4 + toolScore * 0.2 + seniorityScore * 0.15 + expScore * 0.15 + langScore * 0.1
+      );
+
+      if (strictMode && missingSkills.length > 0) {
+        matchScore = Math.max(0, matchScore - missingSkills.length * 10);
+      }
+
+      matchedSkills = (enriched.hard_skills || []).filter((s: string) => candidateSkills.includes(s.toLowerCase()));
+      missingSkills = (enriched.hard_skills || []).filter((s: string) => !candidateSkills.includes(s.toLowerCase()));
+    }
+
+    return {
+      ...job,
+      hard_skills: enriched.hard_skills || [],
+      software_tools: enriched.software_tools || [],
+      soft_skills: enriched.soft_skills || [],
+      years_experience_min: enriched.years_experience_min || null,
+      education_level: enriched.education_level || null,
+      required_languages: requiredLangs,
+      seniority_level: enriched.seniority_level || job.seniority_level,
+      work_mode: enriched.work_mode || job.work_mode,
+      visa_sponsorship_mentioned: visaMentioned,
+      ind_registered_sponsor: isIndSponsor,
+      visa_likelihood: visaLikelihood,
+      matched_skills: matchedSkills,
+      missing_skills: missingSkills,
+      match_score_overall: matchScore,
+      match_score_breakdown: matchBreakdown,
+      commute_distance_km: null,
+      commute_time_min: null,
+    };
+  });
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const params: SearchParams = await req.json();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // 1. Fetch from ALL sources in parallel
+    console.log("Fetching from all sources in parallel...");
+    const [adzunaJobs, arbeitnowJobs, greenhouseJobs, leverJobs] =
+      await Promise.all([
+        fetchAdzuna(params),
+        fetchArbeitnow(params),
+        fetchGreenhouse(params),
+        fetchLever(params),
+      ]);
+
+    console.log(`Results: Adzuna=${adzunaJobs.length}, Arbeitnow=${arbeitnowJobs.length}, Greenhouse=${greenhouseJobs.length}, Lever=${leverJobs.length}`);
+
+    // Merge and deduplicate by company+title
+    const seen = new Set<string>();
+    const allJobs: any[] = [];
+    for (const job of [...adzunaJobs, ...arbeitnowJobs, ...greenhouseJobs, ...leverJobs]) {
+      const key = `${job.company_name.toLowerCase()}_${job.job_title.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        allJobs.push(job);
+      }
+    }
+
+    if (allJobs.length === 0) {
+      return new Response(JSON.stringify({ jobs: [], sources: { adzuna: 0, arbeitnow: 0, greenhouse: 0, lever: 0 } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Load IND sponsors
     const { data: indSponsors } = await supabase
       .from("ind_sponsors")
       .select("company_name_normalized");
+    const sponsorSet = new Set((indSponsors || []).map((s: any) => s.company_name_normalized));
 
-    const sponsorSet = new Set(
-      (indSponsors || []).map((s: any) => s.company_name_normalized)
+    // 3. AI enrichment (batch, max 40 jobs to stay within limits)
+    const jobsToEnrich = allJobs.slice(0, 40);
+    const jobSummaries = jobsToEnrich.map(
+      (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${j.job_description_raw?.substring(0, 400)}`
     );
 
-    // 4. AI enrichment - batch enrich jobs with skills extraction
-    const jobSummaries = normalizedJobs.map(
-      (j: any) =>
-        `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${j.job_description_raw?.substring(0, 500)}`
-    );
-
-    const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
+    let enrichedMap: Record<string, any> = {};
+    try {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -155,301 +414,99 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are a job listing analyzer. For each job, extract structured data. Be accurate — do not fabricate data. If information isn't available, use empty arrays or null.`,
+              content: "You are a job listing analyzer. Extract structured data for each job. Be accurate — do not fabricate. If unavailable, use empty arrays or null.",
             },
             {
               role: "user",
-              content: `Analyze these ${normalizedJobs.length} job listings and extract skills, tools, requirements for each:\n\n${jobSummaries.join("\n---\n")}`,
+              content: `Analyze these ${jobsToEnrich.length} jobs:\n\n${jobSummaries.join("\n---\n")}`,
             },
           ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "enrich_jobs",
-                description: "Return enriched data for all job listings",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    jobs: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          job_id: { type: "string" },
-                          hard_skills: {
-                            type: "array",
-                            items: { type: "string" },
-                          },
-                          software_tools: {
-                            type: "array",
-                            items: { type: "string" },
-                          },
-                          soft_skills: {
-                            type: "array",
-                            items: { type: "string" },
-                          },
-                          years_experience_min: {
-                            type: "integer",
-                            nullable: true,
-                          },
-                          education_level: {
-                            type: "string",
-                            nullable: true,
-                          },
-                          required_languages: {
-                            type: "array",
-                            items: { type: "string" },
-                          },
-                          seniority_level: {
-                            type: "string",
-                            nullable: true,
-                            enum: [
-                              "Junior",
-                              "Mid",
-                              "Senior",
-                              "Lead",
-                              "Manager",
-                            ],
-                          },
-                          work_mode: {
-                            type: "string",
-                            nullable: true,
-                            enum: ["On-site", "Hybrid", "Remote"],
-                          },
-                          visa_sponsorship_mentioned: {
-                            type: "string",
-                            enum: ["yes", "no", "unclear"],
-                          },
-                        },
-                        required: ["job_id"],
-                        additionalProperties: false,
+          tools: [{
+            type: "function",
+            function: {
+              name: "enrich_jobs",
+              description: "Return enriched data for all job listings",
+              parameters: {
+                type: "object",
+                properties: {
+                  jobs: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        job_id: { type: "string" },
+                        hard_skills: { type: "array", items: { type: "string" } },
+                        software_tools: { type: "array", items: { type: "string" } },
+                        soft_skills: { type: "array", items: { type: "string" } },
+                        years_experience_min: { type: "integer", nullable: true },
+                        education_level: { type: "string", nullable: true },
+                        required_languages: { type: "array", items: { type: "string" } },
+                        seniority_level: { type: "string", nullable: true, enum: ["Junior", "Mid", "Senior", "Lead", "Manager"] },
+                        work_mode: { type: "string", nullable: true, enum: ["On-site", "Hybrid", "Remote"] },
+                        visa_sponsorship_mentioned: { type: "string", enum: ["yes", "no", "unclear"] },
                       },
+                      required: ["job_id"],
+                      additionalProperties: false,
                     },
                   },
-                  required: ["jobs"],
-                  additionalProperties: false,
                 },
+                required: ["jobs"],
+                additionalProperties: false,
               },
             },
-          ],
-          tool_choice: {
-            type: "function",
-            function: { name: "enrich_jobs" },
-          },
+          }],
+          tool_choice: { type: "function", function: { name: "enrich_jobs" } },
         }),
-      }
-    );
+      });
 
-    let enrichedMap: Record<string, any> = {};
-    if (aiResponse.ok) {
-      const aiData = await aiResponse.json();
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (toolCall) {
-        try {
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+        if (toolCall) {
           const parsed = JSON.parse(toolCall.function.arguments);
           for (const ej of parsed.jobs || []) {
             enrichedMap[ej.job_id] = ej;
           }
-        } catch (e) {
-          console.error("Failed to parse AI enrichment:", e);
         }
+      } else {
+        console.error("AI enrichment failed:", aiResponse.status);
       }
-    } else {
-      console.error("AI enrichment failed:", aiResponse.status);
+    } catch (e) {
+      console.error("AI enrichment error:", e);
     }
 
-    // 5. Merge enrichment + calculate visa likelihood + matching
-    const profile = params.candidateProfile;
-    const finalJobs = normalizedJobs.map((job: any) => {
-      const enriched = enrichedMap[job.job_id] || {};
-      const companyNormalized = job.company_name.toLowerCase().trim();
-      const isIndSponsor = sponsorSet.has(companyNormalized);
-      const visaMentioned = enriched.visa_sponsorship_mentioned || "unclear";
-      const requiredLangs = enriched.required_languages || [];
-      const hasEnglish = requiredLangs.some(
-        (l: string) => l.toLowerCase() === "english"
-      );
+    // 4. Enrich, match, filter
+    const finalJobs = enrichAndMatch(allJobs, enrichedMap, sponsorSet, params.candidateProfile, params.strictMode);
 
-      let visaLikelihood: string | null = null;
-      if (isIndSponsor && (visaMentioned === "yes" || hasEnglish)) {
-        visaLikelihood = "High";
-      } else if (isIndSponsor) {
-        visaLikelihood = "Medium";
-      } else if (visaMentioned === "yes") {
-        visaLikelihood = "Medium";
-      } else {
-        visaLikelihood = "Low";
-      }
-
-      // Matching
-      let matchScore = 0;
-      let matchBreakdown = {
-        hard_skills: 0,
-        tools: 0,
-        seniority: 0,
-        experience: 0,
-        language: 0,
-      };
-      let matchedSkills: string[] = [];
-      let missingSkills: string[] = [];
-
-      const jobSkills = (enriched.hard_skills || []).map((s: string) =>
-        s.toLowerCase()
-      );
-      const jobTools = (enriched.software_tools || []).map((s: string) =>
-        s.toLowerCase()
-      );
-
-      if (profile) {
-        const candidateSkills = profile.hard_skills.map((s) => s.toLowerCase());
-        const candidateTools = profile.software_tools.map((s) =>
-          s.toLowerCase()
-        );
-
-        // Hard skills (40%)
-        matchedSkills = jobSkills.filter((s: string) =>
-          candidateSkills.includes(s)
-        );
-        missingSkills = jobSkills.filter(
-          (s: string) => !candidateSkills.includes(s)
-        );
-        const skillScore =
-          jobSkills.length > 0
-            ? (matchedSkills.length / jobSkills.length) * 100
-            : 50;
-
-        // Tools (20%)
-        const matchedTools = jobTools.filter((t: string) =>
-          candidateTools.includes(t)
-        );
-        const toolScore =
-          jobTools.length > 0
-            ? (matchedTools.length / jobTools.length) * 100
-            : 50;
-
-        // Seniority (15%)
-        const seniorityLevels = [
-          "junior",
-          "mid",
-          "senior",
-          "lead",
-          "manager",
-        ];
-        const jobSenIdx = seniorityLevels.indexOf(
-          (enriched.seniority_level || "").toLowerCase()
-        );
-        const candSenIdx = seniorityLevels.indexOf(
-          profile.seniority.toLowerCase()
-        );
-        const seniorityScore =
-          jobSenIdx >= 0 && candSenIdx >= 0
-            ? Math.max(0, 100 - Math.abs(jobSenIdx - candSenIdx) * 25)
-            : 50;
-
-        // Experience (15%)
-        const jobExpMin = enriched.years_experience_min || 0;
-        const expDiff = profile.years_experience - jobExpMin;
-        const expScore = expDiff >= 0 ? 100 : Math.max(0, 100 + expDiff * 20);
-
-        // Language (10%)
-        const candidateLangs = profile.languages.map((l) => l.toLowerCase());
-        const langMatch = requiredLangs.filter((l: string) =>
-          candidateLangs.includes(l.toLowerCase())
-        );
-        const langScore =
-          requiredLangs.length > 0
-            ? (langMatch.length / requiredLangs.length) * 100
-            : 100;
-
-        matchBreakdown = {
-          hard_skills: Math.round(skillScore),
-          tools: Math.round(toolScore),
-          seniority: Math.round(seniorityScore),
-          experience: Math.round(expScore),
-          language: Math.round(langScore),
-        };
-
-        matchScore = Math.round(
-          skillScore * 0.4 +
-            toolScore * 0.2 +
-            seniorityScore * 0.15 +
-            expScore * 0.15 +
-            langScore * 0.1
-        );
-
-        // Strict mode penalty
-        if (params.strictMode && missingSkills.length > 0) {
-          matchScore = Math.max(
-            0,
-            matchScore - missingSkills.length * 10
-          );
-        }
-
-        // Restore original casing for display
-        matchedSkills = (enriched.hard_skills || []).filter((s: string) =>
-          candidateSkills.includes(s.toLowerCase())
-        );
-        missingSkills = (enriched.hard_skills || []).filter(
-          (s: string) => !candidateSkills.includes(s.toLowerCase())
-        );
-      }
-
-      return {
-        ...job,
-        hard_skills: enriched.hard_skills || [],
-        software_tools: enriched.software_tools || [],
-        soft_skills: enriched.soft_skills || [],
-        years_experience_min: enriched.years_experience_min || null,
-        education_level: enriched.education_level || null,
-        required_languages: requiredLangs,
-        seniority_level: enriched.seniority_level || job.seniority_level,
-        work_mode: enriched.work_mode || job.work_mode,
-        visa_sponsorship_mentioned: visaMentioned,
-        ind_registered_sponsor: isIndSponsor,
-        visa_likelihood: visaLikelihood,
-        matched_skills: matchedSkills,
-        missing_skills: missingSkills,
-        match_score_overall: matchScore,
-        match_score_breakdown: matchBreakdown,
-        commute_distance_km: null,
-        commute_time_min: null,
-      };
-    });
-
-    // 6. Apply filters
     let results = finalJobs;
-
-    if (params.workMode && params.workMode !== "all") {
-      results = results.filter((j: any) => j.work_mode === params.workMode);
+    if (params.workModes?.length > 0) {
+      results = results.filter((j: any) => j.work_mode && params.workModes.includes(j.work_mode));
     }
     if (params.indSponsorOnly) {
       results = results.filter((j: any) => j.ind_registered_sponsor);
     }
-    if (params.matchThreshold > 0 && profile) {
-      results = results.filter(
-        (j: any) => j.match_score_overall >= params.matchThreshold
-      );
+    if (params.matchThreshold > 0 && params.candidateProfile) {
+      results = results.filter((j: any) => j.match_score_overall >= params.matchThreshold);
     }
 
-    // Sort by match score descending
-    results.sort(
-      (a: any, b: any) => b.match_score_overall - a.match_score_overall
-    );
+    results.sort((a: any, b: any) => b.match_score_overall - a.match_score_overall);
 
-    return new Response(JSON.stringify({ jobs: results }), {
+    return new Response(JSON.stringify({
+      jobs: results,
+      sources: {
+        adzuna: adzunaJobs.length,
+        arbeitnow: arbeitnowJobs.length,
+        greenhouse: greenhouseJobs.length,
+        lever: leverJobs.length,
+      },
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("search-jobs error:", e);
     return new Response(
-      JSON.stringify({
-        error: e instanceof Error ? e.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

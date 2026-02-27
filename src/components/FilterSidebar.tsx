@@ -59,17 +59,9 @@ export function FilterSidebar({ filters, onFiltersChange, onSearch }: FilterSide
               className="pl-8 h-8 text-xs bg-sidebar-accent border-sidebar-border"
             />
           </div>
-          <Select value={filters.country} onValueChange={(v) => update({ country: v })}>
-            <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
-              <SelectValue placeholder="Country" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Netherlands">Netherlands</SelectItem>
-              <SelectItem value="Germany">Germany</SelectItem>
-              <SelectItem value="Belgium">Belgium</SelectItem>
-              <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 h-8 px-3 rounded-md border border-sidebar-border bg-sidebar-accent text-xs text-foreground">
+            🇳🇱 Netherlands
+          </div>
           <Input placeholder="City" value={filters.city} onChange={(e) => update({ city: e.target.value })} className="h-8 text-xs bg-sidebar-accent border-sidebar-border" />
           <Select value={String(filters.radius)} onValueChange={(v) => update({ radius: Number(v) })}>
             <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">

@@ -419,7 +419,7 @@ async function aiEnrichBatch(
   );
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000); // 20s hard timeout
+  const timeout = setTimeout(() => controller.abort(), 55000); // 55s hard timeout
 
   try {
     const aiResponse = await fetch(
@@ -543,7 +543,7 @@ async function aiEnrichWithConcurrency(
 
   // Split into batches of AI_CONCURRENCY for parallel processing
   // Each batch sends all its jobs in a single AI call
-  const batchSize = Math.min(20, jobsToEnrich.length); // max 20 jobs per AI call
+  const batchSize = Math.min(5, jobsToEnrich.length); // max 5 jobs per AI call to avoid timeouts
   const batches: any[][] = [];
   for (let i = 0; i < jobsToEnrich.length; i += batchSize) {
     batches.push(jobsToEnrich.slice(i, i + batchSize));

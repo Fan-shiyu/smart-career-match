@@ -111,6 +111,7 @@ async function fetchAdzuna(params: SearchParams): Promise<any[]> {
       salary_min: j.salary_min ? Math.round(j.salary_min) : null,
       salary_max: j.salary_max ? Math.round(j.salary_max) : null, salary_currency: "EUR",
       job_description_raw: j.description?.replace(/<[^>]*>/g, "") || "",
+      job_description_source: "api_full",
       salary_text_raw: j.salary_min ? `${j.salary_min}-${j.salary_max}` : null,
       work_lat: j.latitude || null, work_lng: j.longitude || null,
     }));
@@ -142,7 +143,8 @@ async function fetchArbeitnow(params: SearchParams): Promise<any[]> {
       employment_type: j.job_types?.includes("full_time") ? "Full-time" : j.job_types?.includes("part_time") ? "Part-time" : null,
       work_mode: j.remote ? "Remote" : null, country: "Netherlands",
       city: (j.location || "").split(",")[0]?.trim() || null, company_name: j.company_name || "Unknown",
-      salary_currency: "EUR", job_description_raw: (j.description || "").replace(/<[^>]*>/g, "").substring(0, 4000),
+      salary_currency: "EUR", job_description_raw: (j.description || "").replace(/<[^>]*>/g, ""),
+      job_description_source: "api_full",
     }));
   } catch (e) { console.error("Arbeitnow fetch error:", e); return []; }
 }
@@ -174,7 +176,8 @@ async function fetchGreenhouse(params: SearchParams): Promise<any[]> {
         date_posted: j.updated_at?.split("T")[0] || "", job_title: j.title || "Unknown",
         country: "Netherlands", city: (j.location?.name || "").split(",")[0]?.trim() || null,
         company_name: board.charAt(0).toUpperCase() + board.slice(1),
-        job_description_raw: (j.content || "").replace(/<[^>]*>/g, "").substring(0, 4000),
+        job_description_raw: (j.content || "").replace(/<[^>]*>/g, ""),
+        job_description_source: "api_full",
         department: j.departments?.[0]?.name || null,
       }));
     } catch { return []; }
@@ -211,7 +214,8 @@ async function fetchLever(params: SearchParams): Promise<any[]> {
         country: "Netherlands", city: (j.categories?.location || "").split(",")[0]?.split("-")[0]?.trim() || null,
         company_name: board.charAt(0).toUpperCase() + board.slice(1),
         department: j.categories?.department || null,
-        job_description_raw: (j.descriptionPlain || "").substring(0, 4000),
+        job_description_raw: j.descriptionPlain || "",
+        job_description_source: "api_full",
       }));
     } catch { return []; }
   };
@@ -248,7 +252,8 @@ async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
         country: "Netherlands", city: j.location?.city || null, region_province: j.location?.region || null,
         company_name: j.company?.name || company, industry: j.industry?.name || null,
         department: j.department?.label || null,
-        job_description_raw: (j.jobAd?.sections?.jobDescription?.text || "").replace(/<[^>]*>/g, "").substring(0, 4000),
+        job_description_raw: (j.jobAd?.sections?.jobDescription?.text || "").replace(/<[^>]*>/g, ""),
+        job_description_source: "api_full",
       }));
     } catch { return []; }
   };
@@ -296,8 +301,9 @@ async function aiEnrichBatch(
   const enrichedMap: Record<string, any> = {};
   if (jobs.length === 0) return enrichedMap;
 
+  // Use full JD text (up to 6000 chars) for better extraction accuracy
   const jobSummaries = jobs.map(
-    (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${(j.job_description_raw || "").substring(0, 1500)}`
+    (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${(j.job_description_raw || "").substring(0, 6000)}`
   );
 
   const controller = new AbortController();
@@ -554,6 +560,9 @@ async function saveEnrichmentToCache(supabase: any, jobs: any[]): Promise<void> 
       data_source_type: job.data_source_type || "aggregator",
       work_lat: job.work_lat || null,
       work_lng: job.work_lng || null,
+      job_description_raw_snippet: job.job_description_raw_snippet || null,
+      job_description_source: job.job_description_source || "api_full",
+      job_description_char_count: job.job_description_char_count || (job.job_description_raw || "").length,
     };
   }));
 
@@ -728,6 +737,9 @@ function enrichAndMatch(
       cv_improvement_suggestions: null, suggested_cv_keywords: [],
       cover_letter_angle: null, interview_topics_to_prepare: [],
       job_description_raw: job.job_description_raw || "",
+      job_description_raw_snippet: (job.job_description_raw || "").substring(0, 300).replace(/\s+/g, " ").trim() + ((job.job_description_raw || "").length > 300 ? "…" : ""),
+      job_description_source: job.job_description_source || "api_full",
+      job_description_char_count: (job.job_description_raw || "").length,
       requirements_raw: enriched.requirements_raw || null, company_description_raw: null,
     };
   });

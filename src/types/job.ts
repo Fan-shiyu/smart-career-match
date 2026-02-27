@@ -114,6 +114,9 @@ export interface Job {
 
   // L) Raw Text
   job_description_raw: string;
+  job_description_raw_snippet: string | null;
+  job_description_source: string | null;
+  job_description_char_count: number | null;
   requirements_raw: string | null;
   company_description_raw: string | null;
 }

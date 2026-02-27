@@ -344,6 +344,13 @@ export function JobDetailDrawer({ job, open, onOpenChange }: JobDetailDrawerProp
 
           {/* Tab F: Full Description */}
           <TabsContent value="description" className="mt-4 space-y-4">
+            {job.job_description_char_count != null && (
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span>Source: <span className="font-medium text-foreground">{job.job_description_source || "unknown"}</span></span>
+                <span>·</span>
+                <span>{job.job_description_char_count.toLocaleString()} chars</span>
+              </div>
+            )}
             {job.job_description_raw && (
               <div>
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Job Description</h4>

@@ -78,6 +78,9 @@ const defaults: Omit<Job, 'job_id' | 'source' | 'job_url' | 'apply_url' | 'date_
   cover_letter_angle: null,
   interview_topics_to_prepare: [],
   requirements_raw: null,
+  job_description_raw_snippet: null,
+  job_description_source: null,
+  job_description_char_count: null,
   company_description_raw: null,
 };
 

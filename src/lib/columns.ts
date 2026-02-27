@@ -113,7 +113,10 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: "match_explanation", label: "Match Explanation", category: "Matching", getValue: (j) => str(j.match_explanation) },
 
   // L) Raw Text
-  { key: "job_description_raw", label: "Job Description", category: "Raw Text", getValue: (j) => j.job_description_raw },
+  { key: "job_description_raw_snippet", label: "JD Snippet", category: "Raw Text", getValue: (j) => str(j.job_description_raw_snippet) },
+  { key: "job_description_raw", label: "Job Description (Full)", category: "Raw Text", getValue: (j) => j.job_description_raw },
+  { key: "job_description_source", label: "JD Source", category: "Raw Text", getValue: (j) => str(j.job_description_source) },
+  { key: "job_description_char_count", label: "JD Char Count", category: "Raw Text", getValue: (j) => str(j.job_description_char_count) },
   { key: "requirements_raw", label: "Requirements", category: "Raw Text", getValue: (j) => str(j.requirements_raw) },
   { key: "company_description_raw", label: "Company Description", category: "Raw Text", getValue: (j) => str(j.company_description_raw) },
 

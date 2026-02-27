@@ -63,9 +63,12 @@ export type Database = {
           ind_matched_name: string | null
           ind_registered_sponsor: boolean | null
           industry: string | null
+          job_description_char_count: number | null
           job_description_hash: string | null
           job_description_language: string | null
           job_description_raw: string | null
+          job_description_raw_snippet: string | null
+          job_description_source: string | null
           job_id: string
           job_status: string | null
           job_title: string
@@ -158,9 +161,12 @@ export type Database = {
           ind_matched_name?: string | null
           ind_registered_sponsor?: boolean | null
           industry?: string | null
+          job_description_char_count?: number | null
           job_description_hash?: string | null
           job_description_language?: string | null
           job_description_raw?: string | null
+          job_description_raw_snippet?: string | null
+          job_description_source?: string | null
           job_id: string
           job_status?: string | null
           job_title: string
@@ -253,9 +259,12 @@ export type Database = {
           ind_matched_name?: string | null
           ind_registered_sponsor?: boolean | null
           industry?: string | null
+          job_description_char_count?: number | null
           job_description_hash?: string | null
           job_description_language?: string | null
           job_description_raw?: string | null
+          job_description_raw_snippet?: string | null
+          job_description_source?: string | null
           job_id?: string
           job_status?: string | null
           job_title?: string

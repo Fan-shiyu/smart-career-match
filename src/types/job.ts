@@ -70,6 +70,7 @@ export interface SearchFilters {
   commuteMode: string;
   matchThreshold: number;
   strictMode: boolean;
+  topN: number;
 }
 
 export type ExportPreset = "quick" | "detailed" | "skill-gap" | "custom";

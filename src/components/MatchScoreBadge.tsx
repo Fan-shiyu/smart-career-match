@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 interface MatchScoreBadgeProps {
   score: number;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }
 
 export function MatchScoreBadge({ score, size = "md" }: MatchScoreBadgeProps) {
@@ -12,7 +12,7 @@ export function MatchScoreBadge({ score, size = "md" }: MatchScoreBadgeProps) {
     <div
       className={cn(
         "inline-flex items-center justify-center font-mono font-semibold rounded-md border",
-        size === "sm" ? "text-xs px-2 py-0.5" : "text-sm px-2.5 py-1",
+        size === "sm" ? "text-xs px-2 py-0.5" : size === "lg" ? "text-lg px-3 py-1.5" : "text-sm px-2.5 py-1",
         level === "high" && "gradient-score-high text-score-high",
         level === "medium" && "gradient-score-medium text-score-medium",
         level === "low" && "gradient-score-low text-score-low"

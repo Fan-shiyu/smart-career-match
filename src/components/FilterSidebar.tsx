@@ -170,6 +170,19 @@ export function FilterSidebar({ filters, onFiltersChange, onSearch }: FilterSide
           </div>
         </FilterGroup>
 
+        <FilterGroup title="Data Source" defaultOpen={false}>
+          <Select value={filters.dataSourceFilter} onValueChange={(v) => update({ dataSourceFilter: v as any })}>
+            <SelectTrigger className="h-8 text-xs bg-sidebar-accent border-sidebar-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              <SelectItem value="company_direct">Company direct only</SelectItem>
+              <SelectItem value="aggregator">Aggregated only</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterGroup>
+
         <FilterGroup title="Commute" defaultOpen={false}>
           <Input
             placeholder="Origin (postcode/city)"
@@ -253,4 +266,5 @@ export const defaultFilters: SearchFilters = {
   matchThreshold: 50,
   strictMode: false,
   topN: 20,
+  dataSourceFilter: "all",
 };

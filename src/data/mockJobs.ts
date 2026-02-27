@@ -2,6 +2,7 @@ import { Job } from "@/types/job";
 
 // Default values for all the new fields
 const defaults: Omit<Job, 'job_id' | 'source' | 'job_url' | 'apply_url' | 'date_posted' | 'job_title' | 'country' | 'company_name' | 'job_description_raw' | 'match_score_overall' | 'match_score_breakdown' | 'visa_sponsorship_mentioned' | 'ind_registered_sponsor'> = {
+  data_source_type: "aggregator",
   source_job_id: null,
   date_scraped: null,
   job_status: "active",

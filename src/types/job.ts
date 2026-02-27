@@ -7,6 +7,7 @@ export interface Job {
   source_job_id: string | null;
   job_url: string;
   apply_url: string;
+  data_source_type: "aggregator" | "company_direct" | string;
   date_posted: string;
   date_scraped: string | null;
   job_status: string | null;
@@ -148,6 +149,7 @@ export interface SearchFilters {
   matchThreshold: number;
   strictMode: boolean;
   topN: number;
+  dataSourceFilter: "all" | "aggregator" | "company_direct";
 }
 
 export type ExportPreset = "quick" | "detailed" | "full" | "visa" | "skill-gap" | "custom";

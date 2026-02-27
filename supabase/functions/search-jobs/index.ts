@@ -111,7 +111,7 @@ async function fetchAdzuna(params: SearchParams): Promise<any[]> {
       salary_min: j.salary_min ? Math.round(j.salary_min) : null,
       salary_max: j.salary_max ? Math.round(j.salary_max) : null, salary_currency: "EUR",
       job_description_raw: j.description?.replace(/<[^>]*>/g, "") || "",
-      job_description_source: "api_full",
+      job_description_source: "api_snippet",
       salary_text_raw: j.salary_min ? `${j.salary_min}-${j.salary_max}` : null,
       work_lat: j.latitude || null, work_lng: j.longitude || null,
     }));
@@ -260,6 +260,118 @@ async function fetchSmartRecruiters(params: SearchParams): Promise<any[]> {
   const results = await Promise.allSettled(SMARTRECRUITERS_COMPANIES.map(fetchCompany));
   for (const r of results) if (r.status === "fulfilled") allJobs.push(...r.value);
   return allJobs;
+}
+
+// ── Fetch full job description from job URL when only snippet available ──
+async function fetchFullJobDescription(job: any): Promise<void> {
+  const url = job.job_url || job.apply_url;
+  if (!url || job.job_description_source !== "api_snippet") return;
+  // Skip if already has decent content (>800 chars)
+  if ((job.job_description_raw || "").length > 800) {
+    job.job_description_source = "api_full";
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  try {
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; JobSearchBot/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+    });
+    if (!resp.ok) return;
+
+    const html = await resp.text();
+    // Extract text from common job description containers
+    let fullText = "";
+
+    // Try structured extraction: look for job description sections
+    const jdPatterns = [
+      /<article[^>]*>([\s\S]*?)<\/article>/gi,
+      /<div[^>]*class="[^"]*(?:job[-_]?desc|description|posting[-_]?body|vacancy[-_]?body|content[-_]?body)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+      /<section[^>]*class="[^"]*(?:job[-_]?desc|description|posting)[^"]*"[^>]*>([\s\S]*?)<\/section>/gi,
+      /<main[^>]*>([\s\S]*?)<\/main>/gi,
+    ];
+
+    for (const pattern of jdPatterns) {
+      const match = pattern.exec(html);
+      if (match && match[1]) {
+        const cleaned = match[1]
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
+          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
+          .replace(/<[^>]*>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&#\d+;/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (cleaned.length > fullText.length) fullText = cleaned;
+      }
+    }
+
+    // Fallback: extract all body text if no structured content found
+    if (fullText.length < 500) {
+      const bodyMatch = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(html);
+      if (bodyMatch) {
+        const bodyText = bodyMatch[1]
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
+          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
+          .replace(/<[^>]*>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (bodyText.length > fullText.length) fullText = bodyText;
+      }
+    }
+
+    // Only replace if we got significantly more content
+    if (fullText.length > (job.job_description_raw || "").length * 1.5 && fullText.length > 500) {
+      job.job_description_raw = fullText;
+      job.job_description_source = "detail_page_fetch";
+      console.log(`Fetched full JD for ${job.job_id}: ${fullText.length} chars (was ${(job.job_description_raw || "").length})`);
+    } else {
+      job.job_description_source = "fallback";
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      console.log(`JD fetch timeout for ${job.job_id}`);
+    }
+    // Keep snippet, mark as fallback
+    job.job_description_source = "fallback";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ── Batch fetch full JDs for snippet-only jobs (with concurrency limit) ──
+async function fetchFullJDsForSnippetJobs(jobs: any[]): Promise<void> {
+  const snippetJobs = jobs.filter(j => j.job_description_source === "api_snippet" && (j.job_description_raw || "").length < 800);
+  if (snippetJobs.length === 0) return;
+  console.log(`Fetching full JD for ${snippetJobs.length} snippet-only jobs...`);
+
+  // Process in batches of 5 to respect rate limits
+  const batchSize = 5;
+  for (let i = 0; i < snippetJobs.length; i += batchSize) {
+    const batch = snippetJobs.slice(i, i + batchSize);
+    await Promise.allSettled(batch.map(j => fetchFullJobDescription(j)));
+  }
+
+  const upgraded = snippetJobs.filter(j => j.job_description_source === "detail_page_fetch").length;
+  console.log(`Upgraded ${upgraded}/${snippetJobs.length} jobs to full JD`);
 }
 
 // ── Commute calculation via Google Distance Matrix ──
@@ -826,6 +938,9 @@ serve(async (req) => {
     scoredJobs.sort((a, b) => b.preScore - a.preScore);
     const shortlist = scoredJobs.slice(0, shortlistSize).map(s => s.job);
     const remainder = scoredJobs.slice(shortlistSize).map(s => s.job);
+
+    // Step B2: Fetch full JDs for Adzuna snippet-only jobs in shortlist
+    await fetchFullJDsForSnippetJobs(shortlist);
 
     // Check cache for already-enriched jobs
     const shortlistIds = shortlist.map((j: any) => j.job_id);

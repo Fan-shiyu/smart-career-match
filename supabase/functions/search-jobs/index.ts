@@ -389,13 +389,7 @@ serve(async (req) => {
       });
     }
 
-    // 2. Load IND sponsors
-    const { data: indSponsors } = await supabase
-      .from("ind_sponsors")
-      .select("company_name_normalized");
-    const sponsorSet = new Set((indSponsors || []).map((s: any) => s.company_name_normalized));
-
-    // 3. AI enrichment (batch, max 40 jobs to stay within limits)
+    // 2. Load IND sponsors + AI enrichment IN PARALLEL
     const jobsToEnrich = allJobs.slice(0, 40);
     const jobSummaries = jobsToEnrich.map(
       (j: any) => `JOB_ID: ${j.job_id}\nTITLE: ${j.job_title}\nCOMPANY: ${j.company_name}\nDESCRIPTION: ${j.job_description_raw?.substring(0, 400)}`
@@ -403,8 +397,13 @@ serve(async (req) => {
 
     let enrichedMap: Record<string, any> = {};
     let enrichmentStatus = "success";
-    try {
-      const aiResponse = await fetch(
+
+    // Run IND sponsor lookup and AI enrichment concurrently
+    const [indResult, aiResult] = await Promise.allSettled([
+      // IND sponsors
+      supabase.from("ind_sponsors").select("company_name_normalized"),
+      // AI enrichment
+      fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
@@ -466,8 +465,21 @@ serve(async (req) => {
             },
           }),
         }
-      );
+      ),
+    ]);
 
+    // Process IND sponsors result
+    let sponsorSet = new Set<string>();
+    if (indResult.status === "fulfilled") {
+      const { data: indSponsors } = indResult.value;
+      sponsorSet = new Set((indSponsors || []).map((s: any) => s.company_name_normalized));
+    } else {
+      console.error("IND sponsors load failed:", indResult.reason);
+    }
+
+    // Process AI enrichment result
+    if (aiResult.status === "fulfilled") {
+      const aiResponse = aiResult.value;
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
         const functionCall = aiData.candidates?.[0]?.content?.parts?.find(
@@ -484,8 +496,8 @@ serve(async (req) => {
         console.error("Gemini enrichment failed:", aiResponse.status, errText);
         enrichmentStatus = aiResponse.status === 429 ? "rate_limited" : "failed";
       }
-    } catch (e) {
-      console.error("AI enrichment error:", e);
+    } else {
+      console.error("AI enrichment error:", aiResult.reason);
       enrichmentStatus = "failed";
     }
 

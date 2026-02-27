@@ -14,7 +14,153 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cached_jobs: {
+        Row: {
+          apply_url: string | null
+          city: string | null
+          company_name: string
+          country: string | null
+          date_posted: string | null
+          education_level: string | null
+          employment_type: string | null
+          fetched_at: string
+          hard_skills: string[] | null
+          ind_registered_sponsor: boolean | null
+          industry: string | null
+          job_description_raw: string | null
+          job_id: string
+          job_title: string
+          job_url: string | null
+          required_languages: string[] | null
+          salary_currency: string | null
+          salary_max: number | null
+          salary_min: number | null
+          seniority_level: string | null
+          soft_skills: string[] | null
+          software_tools: string[] | null
+          source: string
+          visa_sponsorship_mentioned: string | null
+          work_mode: string | null
+          years_experience_min: number | null
+        }
+        Insert: {
+          apply_url?: string | null
+          city?: string | null
+          company_name: string
+          country?: string | null
+          date_posted?: string | null
+          education_level?: string | null
+          employment_type?: string | null
+          fetched_at?: string
+          hard_skills?: string[] | null
+          ind_registered_sponsor?: boolean | null
+          industry?: string | null
+          job_description_raw?: string | null
+          job_id: string
+          job_title: string
+          job_url?: string | null
+          required_languages?: string[] | null
+          salary_currency?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          seniority_level?: string | null
+          soft_skills?: string[] | null
+          software_tools?: string[] | null
+          source: string
+          visa_sponsorship_mentioned?: string | null
+          work_mode?: string | null
+          years_experience_min?: number | null
+        }
+        Update: {
+          apply_url?: string | null
+          city?: string | null
+          company_name?: string
+          country?: string | null
+          date_posted?: string | null
+          education_level?: string | null
+          employment_type?: string | null
+          fetched_at?: string
+          hard_skills?: string[] | null
+          ind_registered_sponsor?: boolean | null
+          industry?: string | null
+          job_description_raw?: string | null
+          job_id?: string
+          job_title?: string
+          job_url?: string | null
+          required_languages?: string[] | null
+          salary_currency?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          seniority_level?: string | null
+          soft_skills?: string[] | null
+          software_tools?: string[] | null
+          source?: string
+          visa_sponsorship_mentioned?: string | null
+          work_mode?: string | null
+          years_experience_min?: number | null
+        }
+        Relationships: []
+      }
+      candidate_profiles: {
+        Row: {
+          created_at: string
+          education_level: string | null
+          file_name: string | null
+          hard_skills: string[] | null
+          id: string
+          languages: string[] | null
+          raw_text: string | null
+          seniority: string | null
+          software_tools: string[] | null
+          years_experience: number | null
+        }
+        Insert: {
+          created_at?: string
+          education_level?: string | null
+          file_name?: string | null
+          hard_skills?: string[] | null
+          id?: string
+          languages?: string[] | null
+          raw_text?: string | null
+          seniority?: string | null
+          software_tools?: string[] | null
+          years_experience?: number | null
+        }
+        Update: {
+          created_at?: string
+          education_level?: string | null
+          file_name?: string | null
+          hard_skills?: string[] | null
+          id?: string
+          languages?: string[] | null
+          raw_text?: string | null
+          seniority?: string | null
+          software_tools?: string[] | null
+          years_experience?: number | null
+        }
+        Relationships: []
+      }
+      ind_sponsors: {
+        Row: {
+          company_name: string
+          company_name_normalized: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          company_name: string
+          company_name_normalized: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          company_name?: string
+          company_name_normalized?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

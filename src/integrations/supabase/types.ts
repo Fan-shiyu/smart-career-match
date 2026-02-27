@@ -25,9 +25,11 @@ export type Database = {
           cloud_platforms: string[] | null
           commute_distance_km: number | null
           commute_mode: string | null
+          commute_status: string | null
           commute_time_min: number | null
           commute_time_text: string | null
           company_description_raw: string | null
+          company_enrichment_status: string | null
           company_linkedin_url: string | null
           company_name: string
           company_name_normalized: string | null
@@ -44,6 +46,10 @@ export type Database = {
           department: string | null
           education_level: string | null
           employment_type: string | null
+          enriched_at: string | null
+          enrichment_error: string | null
+          enrichment_status: string
+          enrichment_status_updated_at: string | null
           equity_mentioned: string | null
           extra_holidays: string | null
           fetched_at: string
@@ -53,8 +59,11 @@ export type Database = {
           home_office_budget: string | null
           hours_per_week_max: number | null
           hours_per_week_min: number | null
+          ind_match_method: string | null
+          ind_matched_name: string | null
           ind_registered_sponsor: boolean | null
           industry: string | null
+          job_description_hash: string | null
           job_description_language: string | null
           job_description_raw: string | null
           job_id: string
@@ -65,7 +74,14 @@ export type Database = {
           language_level: string | null
           learning_budget: string | null
           learning_budget_amount: string | null
+          match_explanation: string | null
+          match_score_breakdown: Json | null
+          match_score_overall: number | null
+          match_status: string | null
+          matched_skills: string[] | null
+          missing_skills: string[] | null
           ml_ds_methods: string[] | null
+          must_have_missing_count: number | null
           nice_to_have_skills: string[] | null
           parental_leave: string | null
           pension: string | null
@@ -86,6 +102,7 @@ export type Database = {
           source: string
           source_job_id: string | null
           transport_allowance: string | null
+          visa_likelihood: string | null
           visa_sponsorship_mentioned: string | null
           work_address_raw: string | null
           work_lat: number | null
@@ -103,9 +120,11 @@ export type Database = {
           cloud_platforms?: string[] | null
           commute_distance_km?: number | null
           commute_mode?: string | null
+          commute_status?: string | null
           commute_time_min?: number | null
           commute_time_text?: string | null
           company_description_raw?: string | null
+          company_enrichment_status?: string | null
           company_linkedin_url?: string | null
           company_name: string
           company_name_normalized?: string | null
@@ -122,6 +141,10 @@ export type Database = {
           department?: string | null
           education_level?: string | null
           employment_type?: string | null
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: string
+          enrichment_status_updated_at?: string | null
           equity_mentioned?: string | null
           extra_holidays?: string | null
           fetched_at?: string
@@ -131,8 +154,11 @@ export type Database = {
           home_office_budget?: string | null
           hours_per_week_max?: number | null
           hours_per_week_min?: number | null
+          ind_match_method?: string | null
+          ind_matched_name?: string | null
           ind_registered_sponsor?: boolean | null
           industry?: string | null
+          job_description_hash?: string | null
           job_description_language?: string | null
           job_description_raw?: string | null
           job_id: string
@@ -143,7 +169,14 @@ export type Database = {
           language_level?: string | null
           learning_budget?: string | null
           learning_budget_amount?: string | null
+          match_explanation?: string | null
+          match_score_breakdown?: Json | null
+          match_score_overall?: number | null
+          match_status?: string | null
+          matched_skills?: string[] | null
+          missing_skills?: string[] | null
           ml_ds_methods?: string[] | null
+          must_have_missing_count?: number | null
           nice_to_have_skills?: string[] | null
           parental_leave?: string | null
           pension?: string | null
@@ -164,6 +197,7 @@ export type Database = {
           source: string
           source_job_id?: string | null
           transport_allowance?: string | null
+          visa_likelihood?: string | null
           visa_sponsorship_mentioned?: string | null
           work_address_raw?: string | null
           work_lat?: number | null
@@ -181,9 +215,11 @@ export type Database = {
           cloud_platforms?: string[] | null
           commute_distance_km?: number | null
           commute_mode?: string | null
+          commute_status?: string | null
           commute_time_min?: number | null
           commute_time_text?: string | null
           company_description_raw?: string | null
+          company_enrichment_status?: string | null
           company_linkedin_url?: string | null
           company_name?: string
           company_name_normalized?: string | null
@@ -200,6 +236,10 @@ export type Database = {
           department?: string | null
           education_level?: string | null
           employment_type?: string | null
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: string
+          enrichment_status_updated_at?: string | null
           equity_mentioned?: string | null
           extra_holidays?: string | null
           fetched_at?: string
@@ -209,8 +249,11 @@ export type Database = {
           home_office_budget?: string | null
           hours_per_week_max?: number | null
           hours_per_week_min?: number | null
+          ind_match_method?: string | null
+          ind_matched_name?: string | null
           ind_registered_sponsor?: boolean | null
           industry?: string | null
+          job_description_hash?: string | null
           job_description_language?: string | null
           job_description_raw?: string | null
           job_id?: string
@@ -221,7 +264,14 @@ export type Database = {
           language_level?: string | null
           learning_budget?: string | null
           learning_budget_amount?: string | null
+          match_explanation?: string | null
+          match_score_breakdown?: Json | null
+          match_score_overall?: number | null
+          match_status?: string | null
+          matched_skills?: string[] | null
+          missing_skills?: string[] | null
           ml_ds_methods?: string[] | null
+          must_have_missing_count?: number | null
           nice_to_have_skills?: string[] | null
           parental_leave?: string | null
           pension?: string | null
@@ -242,6 +292,7 @@ export type Database = {
           source?: string
           source_job_id?: string | null
           transport_allowance?: string | null
+          visa_likelihood?: string | null
           visa_sponsorship_mentioned?: string | null
           work_address_raw?: string | null
           work_lat?: number | null

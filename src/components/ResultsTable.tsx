@@ -66,7 +66,7 @@ export function ResultsTable({ jobs }: ResultsTableProps) {
   return (
     <div className="flex-1 overflow-auto scrollbar-thin">
       <table className="w-full text-xs">
-        <thead className="sticky top-0 bg-card z-10 border-b border-border">
+        <thead className="sticky top-0 bg-card z-10 border-b border-border shadow-sm">
           <tr className="text-muted-foreground font-medium uppercase tracking-wider">
             <th className="text-left px-3 py-2.5 w-8">#</th>
             <th className="text-left px-3 py-2.5"><SortHeader label="Score" sortKeyName="match_score_overall" /></th>
@@ -129,7 +129,7 @@ export function ResultsTable({ jobs }: ResultsTableProps) {
 
 function JobDetailPanel({ job }: { job: Job }) {
   return (
-    <div className="border-t border-border bg-card/80 p-4 animate-slide-in">
+    <div className="border-t border-border bg-accent/30 p-4 animate-slide-in">
       <div className="grid grid-cols-3 gap-6 max-w-5xl">
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Match Breakdown</h4>

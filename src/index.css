@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,52 +6,52 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 92%;
+    --background: 210 33% 98%;
+    --foreground: 222 47% 15%;
 
-    --card: 222 44% 8%;
-    --card-foreground: 210 40% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 15%;
 
-    --popover: 222 44% 10%;
-    --popover-foreground: 210 40% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 15%;
 
-    --primary: 187 80% 48%;
-    --primary-foreground: 222 47% 6%;
+    --primary: 250 75% 58%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 30% 14%;
-    --secondary-foreground: 210 30% 80%;
+    --secondary: 220 20% 95%;
+    --secondary-foreground: 222 30% 35%;
 
-    --muted: 222 25% 12%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 46%;
 
-    --accent: 187 60% 20%;
-    --accent-foreground: 187 80% 70%;
+    --accent: 250 50% 95%;
+    --accent-foreground: 250 60% 50%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 222 20% 16%;
-    --input: 222 20% 16%;
-    --ring: 187 80% 48%;
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 250 75% 58%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --score-high: 142 71% 45%;
-    --score-medium: 45 93% 47%;
-    --score-low: 0 72% 51%;
+    --score-high: 152 60% 42%;
+    --score-medium: 38 92% 50%;
+    --score-low: 0 72% 55%;
 
-    --visa-high: 142 71% 45%;
-    --visa-medium: 45 93% 47%;
-    --visa-low: 0 60% 45%;
+    --visa-high: 152 60% 42%;
+    --visa-medium: 38 92% 50%;
+    --visa-low: 0 60% 50%;
 
-    --sidebar-background: 222 47% 5%;
-    --sidebar-foreground: 210 30% 80%;
-    --sidebar-primary: 187 80% 48%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 30% 10%;
-    --sidebar-accent-foreground: 187 60% 70%;
-    --sidebar-border: 222 20% 12%;
-    --sidebar-ring: 187 80% 48%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 30% 35%;
+    --sidebar-primary: 250 75% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 250 50% 97%;
+    --sidebar-accent-foreground: 250 60% 50%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 250 75% 58%;
   }
 }
 
@@ -62,7 +62,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 
   code, .font-mono {
@@ -90,21 +90,21 @@
   }
 
   .glow-primary {
-    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.3);
+    box-shadow: 0 4px 14px -3px hsl(var(--primary) / 0.35);
   }
 
   .gradient-score-high {
-    background: linear-gradient(135deg, hsl(var(--score-high) / 0.15), hsl(var(--score-high) / 0.05));
-    border-color: hsl(var(--score-high) / 0.3);
+    background: linear-gradient(135deg, hsl(var(--score-high) / 0.1), hsl(var(--score-high) / 0.04));
+    border-color: hsl(var(--score-high) / 0.25);
   }
 
   .gradient-score-medium {
-    background: linear-gradient(135deg, hsl(var(--score-medium) / 0.15), hsl(var(--score-medium) / 0.05));
-    border-color: hsl(var(--score-medium) / 0.3);
+    background: linear-gradient(135deg, hsl(var(--score-medium) / 0.1), hsl(var(--score-medium) / 0.04));
+    border-color: hsl(var(--score-medium) / 0.25);
   }
 
   .gradient-score-low {
-    background: linear-gradient(135deg, hsl(var(--score-low) / 0.15), hsl(var(--score-low) / 0.05));
-    border-color: hsl(var(--score-low) / 0.3);
+    background: linear-gradient(135deg, hsl(var(--score-low) / 0.1), hsl(var(--score-low) / 0.04));
+    border-color: hsl(var(--score-low) / 0.25);
   }
 }

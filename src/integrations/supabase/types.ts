@@ -36,6 +36,7 @@ export type Database = {
           company_website: string | null
           contract_type: string | null
           country: string | null
+          data_source_type: string | null
           data_stack: string[] | null
           date_posted: string | null
           date_scraped: string | null
@@ -113,6 +114,7 @@ export type Database = {
           company_website?: string | null
           contract_type?: string | null
           country?: string | null
+          data_source_type?: string | null
           data_stack?: string[] | null
           date_posted?: string | null
           date_scraped?: string | null
@@ -190,6 +192,7 @@ export type Database = {
           company_website?: string | null
           contract_type?: string | null
           country?: string | null
+          data_source_type?: string | null
           data_stack?: string[] | null
           date_posted?: string | null
           date_scraped?: string | null
@@ -287,6 +290,122 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          ats_identifier: string | null
+          ats_type: Database["public"]["Enums"]["ats_type"]
+          careers_url: string | null
+          company_name: string
+          company_name_normalized: string
+          company_size: string | null
+          country: string | null
+          created_at: string
+          id: string
+          industry: string | null
+          ingestion_frequency_minutes: number
+          ingestion_status: Database["public"]["Enums"]["ingestion_status"]
+          last_ingested_at: string | null
+        }
+        Insert: {
+          ats_identifier?: string | null
+          ats_type?: Database["public"]["Enums"]["ats_type"]
+          careers_url?: string | null
+          company_name: string
+          company_name_normalized: string
+          company_size?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          ingestion_frequency_minutes?: number
+          ingestion_status?: Database["public"]["Enums"]["ingestion_status"]
+          last_ingested_at?: string | null
+        }
+        Update: {
+          ats_identifier?: string | null
+          ats_type?: Database["public"]["Enums"]["ats_type"]
+          careers_url?: string | null
+          company_name?: string
+          company_name_normalized?: string
+          company_size?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          ingestion_frequency_minutes?: number
+          ingestion_status?: Database["public"]["Enums"]["ingestion_status"]
+          last_ingested_at?: string | null
+        }
+        Relationships: []
+      }
+      company_jobs: {
+        Row: {
+          apply_url: string | null
+          city: string | null
+          company_id: string
+          company_name: string | null
+          company_name_normalized: string | null
+          country: string | null
+          date_posted: string | null
+          fetched_at: string
+          is_active: boolean
+          job_description_raw: string | null
+          job_id: string
+          job_title: string
+          job_url: string | null
+          location_raw: string | null
+          raw_json: Json | null
+          source: string
+          source_job_id: string | null
+        }
+        Insert: {
+          apply_url?: string | null
+          city?: string | null
+          company_id: string
+          company_name?: string | null
+          company_name_normalized?: string | null
+          country?: string | null
+          date_posted?: string | null
+          fetched_at?: string
+          is_active?: boolean
+          job_description_raw?: string | null
+          job_id: string
+          job_title: string
+          job_url?: string | null
+          location_raw?: string | null
+          raw_json?: Json | null
+          source?: string
+          source_job_id?: string | null
+        }
+        Update: {
+          apply_url?: string | null
+          city?: string | null
+          company_id?: string
+          company_name?: string | null
+          company_name_normalized?: string | null
+          country?: string | null
+          date_posted?: string | null
+          fetched_at?: string
+          is_active?: boolean
+          job_description_raw?: string | null
+          job_id?: string
+          job_title?: string
+          job_url?: string | null
+          location_raw?: string | null
+          raw_json?: Json | null
+          source?: string
+          source_job_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cv_profiles: {
         Row: {
           candidate_profile_hash: string | null
@@ -334,6 +453,47 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      ingestion_logs: {
+        Row: {
+          company_id: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          jobs_found: number | null
+          jobs_inserted: number | null
+          run_timestamp: string
+          status: Database["public"]["Enums"]["ingestion_run_status"]
+        }
+        Insert: {
+          company_id: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          jobs_found?: number | null
+          jobs_inserted?: number | null
+          run_timestamp?: string
+          status: Database["public"]["Enums"]["ingestion_run_status"]
+        }
+        Update: {
+          company_id?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          jobs_found?: number | null
+          jobs_inserted?: number | null
+          run_timestamp?: string
+          status?: Database["public"]["Enums"]["ingestion_run_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -466,6 +626,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      ats_type:
+        | "greenhouse"
+        | "lever"
+        | "workday"
+        | "smartrecruiters"
+        | "custom"
+        | "unknown"
+      ingestion_run_status: "success" | "partial" | "failed"
+      ingestion_status: "active" | "paused" | "error"
       plan_status: "active" | "canceled" | "past_due"
       usage_event_type:
         | "search"
@@ -601,6 +770,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ats_type: [
+        "greenhouse",
+        "lever",
+        "workday",
+        "smartrecruiters",
+        "custom",
+        "unknown",
+      ],
+      ingestion_run_status: ["success", "partial", "failed"],
+      ingestion_status: ["active", "paused", "error"],
       plan_status: ["active", "canceled", "past_due"],
       usage_event_type: [
         "search",

@@ -17,85 +17,232 @@ export type Database = {
       cached_jobs: {
         Row: {
           apply_url: string | null
+          benefits_text_raw: string | null
+          bonus_mentioned: string | null
+          car_lease: string | null
+          certifications: string[] | null
           city: string | null
+          cloud_platforms: string[] | null
+          commute_distance_km: number | null
+          commute_mode: string | null
+          commute_time_min: number | null
+          commute_time_text: string | null
+          company_description_raw: string | null
+          company_linkedin_url: string | null
           company_name: string
+          company_name_normalized: string | null
+          company_size: string | null
+          company_type: string | null
+          company_website: string | null
+          contract_type: string | null
           country: string | null
+          data_stack: string[] | null
           date_posted: string | null
+          date_scraped: string | null
+          degree_fields: string[] | null
+          department: string | null
           education_level: string | null
           employment_type: string | null
+          equity_mentioned: string | null
+          extra_holidays: string | null
           fetched_at: string
+          gym_wellbeing: string | null
           hard_skills: string[] | null
+          health_insurance: string | null
+          home_office_budget: string | null
+          hours_per_week_max: number | null
+          hours_per_week_min: number | null
           ind_registered_sponsor: boolean | null
           industry: string | null
+          job_description_language: string | null
           job_description_raw: string | null
           job_id: string
+          job_status: string | null
           job_title: string
+          job_title_normalized: string | null
           job_url: string | null
+          language_level: string | null
+          learning_budget: string | null
+          learning_budget_amount: string | null
+          ml_ds_methods: string[] | null
+          nice_to_have_skills: string[] | null
+          parental_leave: string | null
+          pension: string | null
+          postal_code: string | null
+          region_province: string | null
+          relocation_support_mentioned: string | null
+          remote_region: string | null
           required_languages: string[] | null
+          requirements_raw: string | null
           salary_currency: string | null
           salary_max: number | null
           salary_min: number | null
+          salary_period: string | null
+          salary_text_raw: string | null
           seniority_level: string | null
           soft_skills: string[] | null
           software_tools: string[] | null
           source: string
+          source_job_id: string | null
+          transport_allowance: string | null
           visa_sponsorship_mentioned: string | null
+          work_address_raw: string | null
+          work_lat: number | null
+          work_lng: number | null
           work_mode: string | null
           years_experience_min: number | null
         }
         Insert: {
           apply_url?: string | null
+          benefits_text_raw?: string | null
+          bonus_mentioned?: string | null
+          car_lease?: string | null
+          certifications?: string[] | null
           city?: string | null
+          cloud_platforms?: string[] | null
+          commute_distance_km?: number | null
+          commute_mode?: string | null
+          commute_time_min?: number | null
+          commute_time_text?: string | null
+          company_description_raw?: string | null
+          company_linkedin_url?: string | null
           company_name: string
+          company_name_normalized?: string | null
+          company_size?: string | null
+          company_type?: string | null
+          company_website?: string | null
+          contract_type?: string | null
           country?: string | null
+          data_stack?: string[] | null
           date_posted?: string | null
+          date_scraped?: string | null
+          degree_fields?: string[] | null
+          department?: string | null
           education_level?: string | null
           employment_type?: string | null
+          equity_mentioned?: string | null
+          extra_holidays?: string | null
           fetched_at?: string
+          gym_wellbeing?: string | null
           hard_skills?: string[] | null
+          health_insurance?: string | null
+          home_office_budget?: string | null
+          hours_per_week_max?: number | null
+          hours_per_week_min?: number | null
           ind_registered_sponsor?: boolean | null
           industry?: string | null
+          job_description_language?: string | null
           job_description_raw?: string | null
           job_id: string
+          job_status?: string | null
           job_title: string
+          job_title_normalized?: string | null
           job_url?: string | null
+          language_level?: string | null
+          learning_budget?: string | null
+          learning_budget_amount?: string | null
+          ml_ds_methods?: string[] | null
+          nice_to_have_skills?: string[] | null
+          parental_leave?: string | null
+          pension?: string | null
+          postal_code?: string | null
+          region_province?: string | null
+          relocation_support_mentioned?: string | null
+          remote_region?: string | null
           required_languages?: string[] | null
+          requirements_raw?: string | null
           salary_currency?: string | null
           salary_max?: number | null
           salary_min?: number | null
+          salary_period?: string | null
+          salary_text_raw?: string | null
           seniority_level?: string | null
           soft_skills?: string[] | null
           software_tools?: string[] | null
           source: string
+          source_job_id?: string | null
+          transport_allowance?: string | null
           visa_sponsorship_mentioned?: string | null
+          work_address_raw?: string | null
+          work_lat?: number | null
+          work_lng?: number | null
           work_mode?: string | null
           years_experience_min?: number | null
         }
         Update: {
           apply_url?: string | null
+          benefits_text_raw?: string | null
+          bonus_mentioned?: string | null
+          car_lease?: string | null
+          certifications?: string[] | null
           city?: string | null
+          cloud_platforms?: string[] | null
+          commute_distance_km?: number | null
+          commute_mode?: string | null
+          commute_time_min?: number | null
+          commute_time_text?: string | null
+          company_description_raw?: string | null
+          company_linkedin_url?: string | null
           company_name?: string
+          company_name_normalized?: string | null
+          company_size?: string | null
+          company_type?: string | null
+          company_website?: string | null
+          contract_type?: string | null
           country?: string | null
+          data_stack?: string[] | null
           date_posted?: string | null
+          date_scraped?: string | null
+          degree_fields?: string[] | null
+          department?: string | null
           education_level?: string | null
           employment_type?: string | null
+          equity_mentioned?: string | null
+          extra_holidays?: string | null
           fetched_at?: string
+          gym_wellbeing?: string | null
           hard_skills?: string[] | null
+          health_insurance?: string | null
+          home_office_budget?: string | null
+          hours_per_week_max?: number | null
+          hours_per_week_min?: number | null
           ind_registered_sponsor?: boolean | null
           industry?: string | null
+          job_description_language?: string | null
           job_description_raw?: string | null
           job_id?: string
+          job_status?: string | null
           job_title?: string
+          job_title_normalized?: string | null
           job_url?: string | null
+          language_level?: string | null
+          learning_budget?: string | null
+          learning_budget_amount?: string | null
+          ml_ds_methods?: string[] | null
+          nice_to_have_skills?: string[] | null
+          parental_leave?: string | null
+          pension?: string | null
+          postal_code?: string | null
+          region_province?: string | null
+          relocation_support_mentioned?: string | null
+          remote_region?: string | null
           required_languages?: string[] | null
+          requirements_raw?: string | null
           salary_currency?: string | null
           salary_max?: number | null
           salary_min?: number | null
+          salary_period?: string | null
+          salary_text_raw?: string | null
           seniority_level?: string | null
           soft_skills?: string[] | null
           software_tools?: string[] | null
           source?: string
+          source_job_id?: string | null
+          transport_allowance?: string | null
           visa_sponsorship_mentioned?: string | null
+          work_address_raw?: string | null
+          work_lat?: number | null
+          work_lng?: number | null
           work_mode?: string | null
           years_experience_min?: number | null
         }
